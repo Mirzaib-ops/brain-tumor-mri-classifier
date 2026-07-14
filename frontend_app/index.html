@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NeuroScan — Premium Brain Tumor MRI Classifier</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="assets/css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js"></script>
+</head>
+<body>
+    <div class="glass-bg"></div>
+    <div class="blobs">
+        <div class="blob blob-1"></div>
+        <div class="blob blob-2"></div>
+    </div>
+    
+    <div class="wrap">
+        <header>
+            <div class="brand">
+                <div class="brand-mark">
+                    <svg viewBox="0 0 24 24" fill="none"><path d="M12 3C8 3 5 6 5 10c0 2.5 1.2 4.2 2.3 5.4.7.8 1.2 1.4 1.2 2.6v1a1 1 0 001 1h5a1 1 0 001-1v-1c0-1.2.5-1.8 1.2-2.6C17.8 14.2 19 12.5 19 10c0-4-3-7-7-7z" stroke="#fff" stroke-width="1.6"/><path d="M9.5 10.5l1.5 2 3-4" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </div>
+                <div>
+                    <div class="brand-name">NeuroScan</div>
+                    <div class="brand-tag">Intelligent MRI Analysis</div>
+                </div>
+            </div>
+            <div class="status-pill" id="statusPill">
+                <div class="status-dot" id="statusDot"></div>
+                <span id="statusText">INITIALIZING AI...</span>
+            </div>
+        </header>
+
+        <main>
+            <div class="hero">
+                <h1 class="hero-title">Advanced Brain MRI <span>Classification</span></h1>
+                <p class="hero-sub">Upload a scan to instantly analyze it against four diagnostic categories using our state-of-the-art transfer-learned neural network.</p>
+            </div>
+
+            <div id="modelError" class="alert-error" style="display:none;">
+                <strong><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 5px;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg> AI Model Not Found</strong>
+                <p>Please place your <code>tfjs_model</code> directory (containing <code>model.json</code> and weights) in the same folder as this application and serve it via a local web server.</p>
+            </div>
+
+            <div class="grid">
+                <!-- Upload Panel -->
+                <div class="panel glass-panel">
+                    <div class="panel-head">
+                        <div class="panel-title">SCAN INPUT</div>
+                        <div class="panel-index">01</div>
+                    </div>
+                    <div id="dropzone" class="dropzone">
+                        <img id="scanImg" alt="MRI scan"/>
+                        <div class="scan-grid-overlay" id="gridOverlay"></div>
+                        <div class="scan-sweep" id="sweep"></div>
+                        <div class="analyzing-tag" id="analyzingTag"><div class="cursor"></div>PROCESSING</div>
+                        <div class="drop-empty" id="dropEmpty">
+                            <div class="drop-icon">
+                                <svg width="28" height="28" viewBox="0 0 24 24" fill="none"><path d="M12 16V4M12 4l-4 4M12 4l4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                            </div>
+                            <p>Drag & Drop scan here or <span class="accent">Browse Files</span></p>
+                            <div class="filetypes">SUPPORTED: JPG, PNG, DICOM (EXPORTED)</div>
+                        </div>
+                    </div>
+                    <input type="file" id="fileInput" accept="image/*">
+                    <div class="panel-foot">
+                        <div class="file-info">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9l-7-7z" stroke="currentColor" stroke-width="2"/><path d="M13 2v7h7" stroke="currentColor" stroke-width="2"/></svg>
+                            <span id="fileLabel">No file selected</span>
+                        </div>
+                        <div class="actions">
+                            <button class="btn btn-ghost" id="resetBtn" style="display:none;">Reset</button>
+                            <button class="btn btn-primary" id="analyzeBtn" disabled>Analyze Scan</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Results Panel -->
+                <div class="panel glass-panel">
+                    <div class="panel-head">
+                        <div class="panel-title">ANALYSIS RESULTS</div>
+                        <div class="panel-index">02</div>
+                    </div>
+                    <div class="results-body">
+                        <div class="placeholder" id="placeholder">
+                            <div class="pulse-ring"></div>
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none"><path d="M9 3H5a2 2 0 00-2 2v4m18 0V5a2 2 0 00-2-2h-4M9 21H5a2 2 0 01-2-2v-4m18 0v4a2 2 0 01-2 2h-4" stroke="currentColor" stroke-width="2"/><path d="M12 9v6m-3-3h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                            <p>Awaiting scan input. Upload an MRI to generate diagnostic predictions.</p>
+                        </div>
+                        <div class="verdict" id="verdict">
+                            <div class="verdict-header">
+                                <div class="verdict-primary">
+                                    <div class="verdict-dot" id="verdictDot"></div>
+                                    <h2 class="verdict-label" id="verdictLabel">—</h2>
+                                </div>
+                                <div class="verdict-conf-badge" id="verdictConf">—% MATCH</div>
+                            </div>
+                            
+                            <div class="confidence-bars" id="barList"></div>
+
+                            <div class="model-meta">
+                                <span class="chip">150×150 TENSOR</span>
+                                <span class="chip">MOBILENETV2</span>
+                                <span class="chip">RESNET50</span>
+                                <span class="chip">EFFICIENTNET</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card glass-panel">
+                    <div class="stat-icon">🧠</div>
+                    <div class="stat-content">
+                        <div class="stat-val">4</div>
+                        <div class="stat-lbl">Diagnostic Classes</div>
+                    </div>
+                </div>
+                <div class="stat-card glass-panel">
+                    <div class="stat-icon">⚡</div>
+                    <div class="stat-content">
+                        <div class="stat-val">&lt;2s</div>
+                        <div class="stat-lbl">Inference Time</div>
+                    </div>
+                </div>
+                <div class="stat-card glass-panel">
+                    <div class="stat-icon">🎯</div>
+                    <div class="stat-content">
+                        <div class="stat-val">95%+</div>
+                        <div class="stat-lbl">Model Accuracy</div>
+                    </div>
+                </div>
+                <div class="stat-card glass-panel">
+                    <div class="stat-icon">📊</div>
+                    <div class="stat-content">
+                        <div class="stat-val">7.2K</div>
+                        <div class="stat-lbl">Training Scans</div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <footer>
+            <p>NEUROSCAN EXPERIMENTAL AI SYSTEM • POWERED BY TENSORFLOW.JS</p>
+        </footer>
+    </div>
+    <script src="assets/js/script.js"></script>
+</body>
+</html>
