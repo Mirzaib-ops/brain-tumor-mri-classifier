@@ -1038,9 +1038,19 @@ async function confirmAppointmentRequest() {
   let notesVal = document.getElementById('reqNotes').value;
   if (!dateVal || !timeVal) { alert('Please select a date and time.'); return; }
   
+  document.getElementById('btnConfirmRequest').textContent = 'Processing Image...';
+  
   if (state.loadedFile && document.getElementById('reqAttachScan') && document.getElementById('reqAttachScan').checked) {
     if (ui.previewImg.src && ui.previewImg.src.startsWith('data:image')) {
-      notesVal += '||IMG||' + ui.previewImg.src;
+      const cvs = document.createElement('canvas');
+      let w = ui.previewImg.naturalWidth;
+      let h = ui.previewImg.naturalHeight;
+      const max = 300;
+      if (w > h) { if (w > max) { h = h * (max / w); w = max; } } 
+      else { if (h > max) { w = w * (max / h); h = max; } }
+      cvs.width = w; cvs.height = h;
+      cvs.getContext('2d').drawImage(ui.previewImg, 0, 0, w, h);
+      notesVal += '||IMG||' + cvs.toDataURL('image/jpeg', 0.6);
     }
   }
   
@@ -1099,7 +1109,11 @@ async function loadAppointments() {
   if (role === 'doctor') {
     list.innerHTML = '<p style="color:var(--text-secondary);">Loading incoming requests...</p>';
     const { data, error } = await supabaseClient.from('appointments').select('*').eq('doctor_id', currentUser.id).order('created_at', { ascending: false });
-    if (error || !data || data.length === 0) {
+    if (error) {
+      list.innerHTML = `<p style="color:var(--error); font-weight:bold;">Error fetching requests: ${error.message}</p>`;
+      return;
+    }
+    if (!data || data.length === 0) {
       list.innerHTML = '<p style="color:var(--text-secondary);">No incoming appointment requests.</p>';
       return;
     }
@@ -1177,7 +1191,11 @@ async function loadAppointments() {
     // Patient View
     list.innerHTML = '<p style="color:var(--text-secondary);">Loading your appointments...</p>';
     const { data, error } = await supabaseClient.from('appointments').select('*, doctors_profiles(full_name)').eq('patient_id', currentUser.id).order('created_at', { ascending: false });
-    if (error || !data || data.length === 0) {
+    if (error) {
+      list.innerHTML = `<p style="color:var(--error); font-weight:bold;">Error fetching requests: ${error.message}</p>`;
+      return;
+    }
+    if (!data || data.length === 0) {
       list.innerHTML = '<p style="color:var(--text-secondary);">You have no appointment requests.</p>';
       return;
     }
