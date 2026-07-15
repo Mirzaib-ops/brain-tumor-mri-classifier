@@ -616,7 +616,13 @@ const authError = document.getElementById('authError');
 supabaseClient.auth.onAuthStateChange(async (event, session) => {
   if (session) {
     currentUser = session.user;
-    const role = currentUser.user_metadata?.role || 'patient'; // Default to patient if missing
+    let role = currentUser.user_metadata?.role;
+    // Admin Override for accounts created directly in Supabase Dashboard
+    if (!role && (currentUser.email.includes('demo.') || currentUser.email.includes('doctor'))) {
+      role = 'doctor';
+    } else if (!role) {
+      role = 'patient';
+    }
     
     viewAuth.style.display = 'none';
     appContainer.style.display = 'block';
@@ -630,12 +636,14 @@ supabaseClient.auth.onAuthStateChange(async (event, session) => {
       
       document.getElementById('tabHistory').style.display = 'block';
       document.getElementById('tabAppointments').style.display = 'block';
+      document.getElementById('tabAppointments').textContent = 'Incoming Appointments';
       document.getElementById('tabDirectory').style.display = 'none';
       document.getElementById('tabAppointments').click(); // Default landing page for doctors
     } else {
       userEmailDisplay.textContent = 'Patient: ' + currentUser.email.split('@')[0];
       document.getElementById('tabHistory').style.display = 'none'; // Patients don't see global history
       document.getElementById('tabAppointments').style.display = 'block'; // Unhide Appointments for Patients (Feedback Dashboard)
+      document.getElementById('tabAppointments').textContent = 'My Appointments';
       document.getElementById('tabDirectory').style.display = 'block';
       document.getElementById('tabScanner').click(); // Default landing page for patients
     }
