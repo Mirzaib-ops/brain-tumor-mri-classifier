@@ -8,18 +8,19 @@
 <style>
   :root{
     --bg:#0a0d12;
-    --panel:#11151c;
-    --panel-2:#0d1117;
-    --border:#1e2530;
-    --border-hover:#2a3442;
+    --panel:rgba(17, 21, 28, 0.7);
+    --panel-2:rgba(13, 17, 23, 0.85);
+    --border:rgba(255, 255, 255, 0.08);
+    --border-hover:rgba(62, 231, 224, 0.3);
     --cyan:#3ee7e0;
     --cyan-dim:rgba(62,231,224,0.15);
-    --text-primary:#e8ecf1;
-    --text-secondary:#8b96a5;
-    --text-muted:#5a6472;
+    --text-primary:#ffffff;
+    --text-secondary:#94a3b8;
+    --text-muted:#64748b;
     --success:#4ade80;
     --warning:#f39c12;
     --error:#ff3366;
+    --primary-gradient: linear-gradient(135deg, #06b6d4, #3b82f6);
   }
   [data-theme="light"] {
     --bg:#f0f2f5;
@@ -32,6 +33,7 @@
     --text-primary:#111827;
     --text-secondary:#4b5563;
     --text-muted:#6b7280;
+    --primary-gradient: linear-gradient(135deg, #0891b2, #2563eb);
   }
   *{box-sizing:border-box;margin:0;padding:0;}
   body{
@@ -58,14 +60,32 @@
   
   @keyframes pulseGlow {
     0% { box-shadow: 0 0 10px rgba(62,231,224,0.05); }
-    50% { box-shadow: 0 0 25px rgba(62,231,224,0.25); }
+    50% { box-shadow: 0 0 35px rgba(62,231,224,0.3); }
     100% { box-shadow: 0 0 10px rgba(62,231,224,0.05); }
   }
 
+  @keyframes floatOrb {
+    0% { transform: translate(0, 0) scale(1); }
+    50% { transform: translate(30px, 60px) scale(1.1); }
+    100% { transform: translate(-30px, -30px) scale(0.95); }
+  }
+
+  .bg-orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(100px);
+    z-index: 0;
+    opacity: 0.4;
+    animation: floatOrb 20s infinite alternate ease-in-out;
+  }
+  .orb-1 { width: 400px; height: 400px; background: #06b6d4; top: -100px; left: -100px; }
+  .orb-2 { width: 500px; height: 500px; background: #3b82f6; bottom: -150px; right: -100px; animation-delay: -5s; }
+  .orb-3 { width: 300px; height: 300px; background: #8b5cf6; top: 40%; left: 40%; animation-delay: -10s; }
+
   .glass-auth {
-    backdrop-filter: blur(12px);
-    background: rgba(17, 21, 28, 0.75) !important;
-    border: 1px solid rgba(255, 255, 255, 0.05) !important;
+    backdrop-filter: blur(16px);
+    background: rgba(17, 21, 28, 0.6) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
     animation: pulseGlow 4s infinite alternate;
   }
   
@@ -106,12 +126,37 @@
   
   /* Auth Forms */
   .auth-form { display:flex; flex-direction:column; gap:16px; max-width:320px; margin:0 auto; padding:40px 0; }
-  .auth-form input { background:var(--panel-2); border:1px solid var(--border); color:var(--text-primary); padding:14px; border-radius:8px; font-size:14px; outline:none; transition:border-color 0.2s; }
-  .auth-form input:focus { border-color:var(--cyan); }
-  .auth-btn { background:var(--cyan); color:#06110f; border:none; padding:14px; border-radius:8px; font-weight:700; cursor:pointer; font-size:14px; transition:transform 0.2s; }
-  .auth-btn:hover { transform:translateY(-2px); box-shadow:0 4px 15px rgba(62,231,224,0.3); }
-  .auth-toggle { background:none; border:none; color:var(--text-secondary); font-size:12px; cursor:pointer; text-decoration:underline; margin-top:8px; }
-  .auth-toggle:hover { color:var(--text-primary); }
+    .auth-btn{
+      width:100%;padding:14px;background:var(--primary-gradient);
+      color:#fff;border:none;border-radius:8px;font-weight:700;
+      font-size:14px;cursor:pointer;margin-top:10px;
+      text-transform:uppercase;letter-spacing:1px;
+      box-shadow: 0 4px 15px rgba(6, 182, 212, 0.3);
+      transition:all 0.3s;
+    }
+    .auth-btn:hover{
+      transform:translateY(-2px);
+      box-shadow: 0 8px 25px rgba(6, 182, 212, 0.5);
+    }
+    .auth-toggle{
+      width:100%;text-align:center;background:none;border:none;
+      color:var(--cyan);margin-top:15px;cursor:pointer;
+      font-size:13px;transition:0.2s;font-weight:600;
+    }
+    .auth-toggle:hover{color:#fff;}
+    
+    input[type="email"], input[type="password"], input[type="text"], input[type="date"] {
+      background: rgba(0,0,0,0.2) !important;
+      border: 1px solid var(--border) !important;
+      color: var(--text-primary) !important;
+      transition: 0.3s;
+      padding: 14px 12px;
+    }
+    input:focus {
+      border-color: var(--cyan) !important;
+      box-shadow: 0 0 0 3px rgba(62,231,224,0.15) !important;
+      outline: none;
+    }
   .auth-error { color:var(--error); font-size:12px; background:rgba(255,51,102,0.1); padding:10px; border-radius:6px; border:1px solid rgba(255,51,102,0.3); display:none; }
   
   .role-label { flex:1; background:var(--panel-2); padding:12px; border-radius:8px; border:1px solid var(--border); cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; font-size:13px; font-weight:600; color:var(--text-secondary); transition:all 0.2s; }
@@ -149,24 +194,27 @@
   .badge.notumor { background:rgba(74,222,128,0.15); color:#4ade80; border:1px solid rgba(74,222,128,0.3); }
   
   .panel{
-    background:var(--panel);
-    border:1px solid var(--border);
-    border-radius:14px;
-    padding:20px;
-    transition:border-color 0.3s, box-shadow 0.3s;
-  }
-  .panel:hover{
-    border-color:var(--border-hover);
-  }
+      background:var(--panel);
+      border:1px solid var(--border);
+      border-radius:16px;
+      padding:24px;
+      margin-bottom:24px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+      backdrop-filter: blur(16px);
+      transition: border-color 0.3s, box-shadow 0.3s, transform 0.3s;
+    }
+    .panel:hover{
+      border-color:var(--border-hover);
+      box-shadow:0 8px 30px rgba(0,0,0,0.3);
+    }
+    .panel-title{
+      display:flex;align-items:center;gap:10px;
+      font-size:16px;font-weight:600;margin-bottom:20px;
+      color:var(--text-primary);
+    }
   .panel.hero { box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
   .panel.hero:hover { border-color: rgba(62,231,224,0.4); box-shadow: 0 10px 40px rgba(62,231,224,0.1); }
   
-  .panel-title{
-    display:flex;align-items:center;gap:8px;
-    font-size:12px;font-weight:600;letter-spacing:1px;
-    color:var(--text-secondary);text-transform:uppercase;
-    margin-bottom:18px;
-  }
   .panel-title .bar{
     width:3px;height:14px;background:var(--cyan);border-radius:2px;
   }
@@ -413,9 +461,20 @@
 
 <!-- Authentication View -->
 <div id="authView" style="display:none; height:100vh; display:flex; flex-direction:column; justify-content:center; align-items:center; position:relative; overflow:hidden; animation: fadeInUp 0.8s ease-out forwards;">
-  <div class="glass-auth" style="background:var(--panel); border:1px solid var(--border); padding:40px; border-radius:12px; width:400px; max-width:90%; position:relative; z-index:10; box-shadow:0 20px 40px rgba(0,0,0,0.4);">
-    <div class="panel-title" style="justify-content:center; margin-bottom:8px;"><span class="bar"></span> NeuroScan Secure Access</div>
-    <p style="color:var(--text-secondary); font-size:13px; margin-bottom:10px;">Please authenticate to access the clinical platform.</p>
+  <!-- Animated Background Orbs -->
+  <div class="bg-orb orb-1"></div>
+  <div class="bg-orb orb-2"></div>
+  <div class="bg-orb orb-3"></div>
+
+  <div class="glass-auth" style="background:var(--panel); border:1px solid var(--border); padding:50px 40px; border-radius:24px; width:450px; max-width:90%; position:relative; z-index:10; box-shadow:0 20px 50px rgba(0,0,0,0.5);">
+    
+    <div style="text-align:center; margin-bottom: 35px;">
+      <div style="width: 70px; height: 70px; background: var(--primary-gradient); border-radius: 20px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 15px; box-shadow: 0 10px 30px rgba(6, 182, 212, 0.4);">
+        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 1 0 0-20z"/><path d="M12 6v6l4 2"/></svg>
+      </div>
+      <h2 style="color:#fff; font-size:26px; font-weight:700; margin-bottom:8px; letter-spacing: -0.5px;">NeuroScan Pro</h2>
+      <p style="color:var(--text-secondary); font-size:14px; font-weight:500;">Next-Generation AI Diagnostic Platform</p>
+    </div>
     
     <div class="auth-error" id="authError"></div>
 
