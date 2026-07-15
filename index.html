@@ -404,7 +404,7 @@
 // Initialize Supabase
 const supabaseUrl = 'https://kafdfqcievjrsvvgbsnn.supabase.co';
 const supabaseKey = 'sb_publishable_elWZd9tvOEpbexUmVagnVA_2cTd8jsb';
-const supabase = supabase.createClient(supabaseUrl, supabaseKey);
+const supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
 
 // State & Classes
 const state = { 
@@ -625,7 +625,7 @@ function renderResults(probs) {
   const syncEl = document.getElementById('dbSyncStatus');
   syncEl.innerHTML = 'SYNCING...';
   syncEl.style.color = 'inherit';
-  supabase.from('scans').insert([{
+  supabaseClient.from('scans').insert([{
     patient_id: ui.metaPatient.textContent,
     scan_date: ui.metaDate.textContent,
     modality: ui.metaMod.textContent,
