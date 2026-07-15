@@ -19,6 +19,7 @@
     --text-2:#9aa7b8;
     --text-3:#5b6879;
     --radius:14px;
+    --header-bg:rgba(5,8,16,0.75);
   }
   [data-theme="light"]{
     --bg-deep:#f4f7fb;
@@ -31,6 +32,7 @@
     --text-1:#0f172a;
     --text-2:#475569;
     --text-3:#64748b;
+    --header-bg:rgba(255,255,255,0.75);
   }
   *{box-sizing:border-box;margin:0;padding:0;}
   html{scroll-behavior:smooth;}
@@ -69,7 +71,7 @@
   /* nav */
   header{
     position:sticky;top:0;z-index:50;
-    background:rgba(5,8,16,0.75);
+    background:var(--header-bg);
     backdrop-filter:blur(10px);
     border-bottom:1px solid var(--line);
   }
