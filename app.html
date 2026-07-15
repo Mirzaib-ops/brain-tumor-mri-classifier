@@ -1000,6 +1000,7 @@ async function init() {
     ui.statusBadge.classList.add('sim');
     ui.statusText.textContent = 'SYSTEM ONLINE (SIMULATION)';
   }
+  if (state.loadedFile) ui.execBtn.disabled = false;
 }
 init();
 
@@ -1512,7 +1513,7 @@ ui.viewerHero.addEventListener('drop', e => handleFile(e.dataTransfer.files[0]))
 ui.fileInput.addEventListener('change', e => handleFile(e.target.files[0]));
 
 function handleFile(file) {
-  if (!file || !file.type.startsWith('image/')) return;
+  if (!file) return;
   const reader = new FileReader();
   reader.onload = e => {
     ui.previewImg.src = e.target.result;
