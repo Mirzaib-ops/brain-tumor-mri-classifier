@@ -930,7 +930,12 @@ async function loadPatientStatus() {
 
 async function loadAppointments() {
   const list = document.getElementById('appointmentsList');
-  const role = currentUser.user_metadata?.role || 'patient';
+  let role = currentUser.user_metadata?.role;
+  if (!role && (currentUser.email.includes('demo.') || currentUser.email.includes('doctor'))) {
+    role = 'doctor';
+  } else if (!role) {
+    role = 'patient';
+  }
   
   if (role === 'doctor') {
     list.innerHTML = '<p style="color:var(--text-secondary);">Loading incoming requests...</p>';
