@@ -1,0 +1,1821 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>NeuroScan Pro — Clinical AI Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --bg:#0a0d12;
+    --panel:rgba(17, 21, 28, 0.7);
+    --panel-2:rgba(13, 17, 23, 0.85);
+    --border:rgba(255, 255, 255, 0.08);
+    --border-hover:rgba(62, 231, 224, 0.3);
+    --cyan:#3ee7e0;
+    --cyan-dim:rgba(62,231,224,0.15);
+    --text-primary:#ffffff;
+    --text-secondary:#94a3b8;
+    --text-muted:#64748b;
+    --success:#4ade80;
+    --warning:#f39c12;
+    --error:#ff3366;
+    --primary-gradient: linear-gradient(135deg, #06b6d4, #3b82f6);
+  }
+  [data-theme="light"] {
+    --bg:#f0f2f5;
+    --panel:#ffffff;
+    --panel-2:#f8f9fa;
+    --border:#d1d5db;
+    --border-hover:#9ca3af;
+    --cyan:#0891b2;
+    --cyan-dim:rgba(8,145,178,0.15);
+    --text-primary:#111827;
+    --text-secondary:#4b5563;
+    --text-muted:#6b7280;
+    --primary-gradient: linear-gradient(135deg, #0891b2, #2563eb);
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--text-primary);
+    font-family:'Segoe UI',system-ui,-apple-system,sans-serif;
+    padding:32px;
+    min-height:100vh;
+    background-image: linear-gradient(to bottom right, rgba(10, 13, 18, 0.95), rgba(10, 13, 18, 0.98)), url('bg.jpg');
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+    transition: background 0.3s ease;
+  }
+  
+  [data-theme="light"] body {
+    background-image: none;
+  }
+
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  
+  @keyframes pulseGlow {
+    0% { box-shadow: 0 0 10px rgba(62,231,224,0.05); }
+    50% { box-shadow: 0 0 35px rgba(62,231,224,0.3); }
+    100% { box-shadow: 0 0 10px rgba(62,231,224,0.05); }
+  }
+
+  @keyframes floatOrb {
+    0% { transform: translate(0, 0) scale(1); }
+    50% { transform: translate(30px, 60px) scale(1.1); }
+    100% { transform: translate(-30px, -30px) scale(0.95); }
+  }
+
+  .bg-orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(100px);
+    z-index: 0;
+    opacity: 0.4;
+    animation: floatOrb 20s infinite alternate ease-in-out;
+  }
+  .orb-1 { width: 400px; height: 400px; background: #06b6d4; top: -100px; left: -100px; }
+  .orb-2 { width: 500px; height: 500px; background: #3b82f6; bottom: -150px; right: -100px; animation-delay: -5s; }
+  .orb-3 { width: 300px; height: 300px; background: #8b5cf6; top: 40%; left: 40%; animation-delay: -10s; }
+
+  .glass-auth {
+    backdrop-filter: blur(16px);
+    background: rgba(17, 21, 28, 0.6) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    animation: pulseGlow 4s infinite alternate;
+  }
+  
+  [data-theme="light"] .glass-auth {
+    background: #ffffff !important;
+    backdrop-filter: none;
+    animation: none;
+  }
+  .topbar{
+    display:flex;justify-content:space-between;align-items:center;
+    margin-bottom:28px;
+  }
+  .brand{display:flex;align-items:center;gap:14px;}
+  .logo{
+    width:44px;height:44px;border-radius:12px;
+    background:linear-gradient(135deg,#1a3a52,#0d1117);
+    border:1px solid #2a3442;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .brand h1{font-size:19px;font-weight:600;letter-spacing:0.2px;}
+  .brand p{font-size:12px;color:var(--text-secondary);margin-top:2px;}
+  .status{
+    display:flex;align-items:center;gap:8px;
+    background:var(--panel);border:1px solid var(--border);
+    padding:8px 14px;border-radius:20px;
+    font-size:12px;color:var(--text-secondary);letter-spacing:0.5px;
+  }
+  .dot{
+    width:8px;height:8px;border-radius:50%;background:var(--success);
+    box-shadow:0 0 8px var(--success);
+    animation:pulse 2s infinite;
+  }
+  .status.sim .dot { background:var(--warning); box-shadow:0 0 8px var(--warning); }
+  @keyframes pulse{
+    0%,100%{opacity:1;box-shadow:0 0 6px currentColor;}
+    50%{opacity:0.5;box-shadow:0 0 2px currentColor;}
+  }
+  
+  /* Auth Forms */
+  .auth-form { display:flex; flex-direction:column; gap:16px; max-width:320px; margin:0 auto; padding:40px 0; }
+    .auth-btn{
+      width:100%;padding:14px;background:#0b1120;
+      color:var(--cyan);border:1px solid #1e293b;border-radius:8px;font-weight:700;
+      font-size:14px;cursor:pointer;margin-top:10px;
+      text-transform:uppercase;letter-spacing:1px;
+      box-shadow: 0 0 20px rgba(62,231,224,0.15);
+      transition:all 0.3s;
+    }
+    .auth-btn:hover{
+      transform:translateY(-2px);
+      box-shadow: 0 0 30px rgba(62,231,224,0.3);
+      border-color:var(--cyan);
+    }
+    .auth-toggle{
+      width:100%;text-align:center;background:none;border:none;
+      color:var(--text-secondary);margin-top:15px;cursor:pointer;
+      font-size:13px;transition:0.2s;
+    }
+    .auth-toggle:hover{color:#fff;}
+    
+    input[type="email"], input[type="password"], input[type="text"], input[type="date"] {
+      background: rgba(0,0,0,0.2);
+      border: 1px solid var(--border);
+      color: var(--text-primary);
+      transition: 0.3s;
+      padding: 14px 12px;
+    }
+    input:focus {
+      border-color: var(--cyan);
+      box-shadow: 0 0 0 3px rgba(62,231,224,0.15);
+      outline: none;
+    }
+  .auth-error { color:var(--error); font-size:12px; background:rgba(255,51,102,0.1); padding:10px; border-radius:6px; border:1px solid rgba(255,51,102,0.3); display:none; }
+  
+  .role-label { flex:1; background:var(--panel-2); padding:12px; border-radius:8px; border:1px solid var(--border); cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; font-size:13px; font-weight:600; color:var(--text-secondary); transition:all 0.2s; }
+  .role-label:hover { border-color:rgba(62,231,224,0.5); color:var(--text-primary); }
+  input[type="radio"]:checked + .role-label { border-color:var(--cyan); background:rgba(62,231,224,0.1); color:var(--cyan); }
+  input[type="radio"] { display:none; }
+  
+  .user-profile { display:flex; align-items:center; gap:12px; font-size:13px; color:var(--text-secondary); }
+  .logout-btn { background:transparent; border:1px solid var(--border); color:var(--text-secondary); padding:6px 12px; border-radius:6px; cursor:pointer; font-size:12px; transition:0.2s; }
+  .logout-btn:hover { background:var(--error); color:#fff; border-color:var(--error); }
+
+  .grid{
+    display:grid;
+    grid-template-columns:1fr 1.4fr 1fr;
+    gap:20px;
+    align-items:start;
+  }
+  @media(max-width: 1024px) { .grid { grid-template-columns: 1fr; } }
+  
+  /* Navigation Tabs */
+  .nav-tabs { display:flex; gap:8px; background:var(--panel-2); padding:6px; border-radius:12px; border:1px solid var(--border); }
+  .nav-btn { background:transparent; color:var(--text-secondary); border:none; padding:8px 18px; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer; transition:all 0.2s; }
+  .nav-btn:hover { color:var(--text-primary); background:rgba(255,255,255,0.03); }
+  .nav-btn.active { background:var(--cyan-dim); color:var(--cyan); box-shadow:0 0 15px rgba(62,231,224,0.1); }
+  
+  /* History Table */
+  .history-table { width:100%; border-collapse:collapse; font-size:13px; text-align:left; }
+  .history-table th { padding:14px; border-bottom:1px solid var(--border); color:var(--text-muted); font-weight:600; text-transform:uppercase; font-size:11px; letter-spacing:0.5px; }
+  .history-table td { padding:14px; border-bottom:1px solid var(--border); color:var(--text-primary); transition:background 0.2s; }
+  .history-table tr:hover td { background:rgba(255,255,255,0.02); }
+  .badge { padding:4px 10px; border-radius:12px; font-size:11px; font-weight:600; letter-spacing:0.3px; text-transform:uppercase; }
+  .badge.glioma { background:rgba(255,51,102,0.15); color:#ff3366; border:1px solid rgba(255,51,102,0.3); }
+  .badge.meningioma { background:rgba(243,156,18,0.15); color:#f39c12; border:1px solid rgba(243,156,18,0.3); }
+  .badge.pituitary { background:rgba(112,0,255,0.15); color:#9d4edd; border:1px solid rgba(112,0,255,0.3); }
+  .badge.notumor { background:rgba(74,222,128,0.15); color:#4ade80; border:1px solid rgba(74,222,128,0.3); }
+  
+  .panel{
+      background:var(--panel);
+      border:1px solid var(--border);
+      border-radius:16px;
+      padding:24px;
+      margin-bottom:24px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+      backdrop-filter: blur(16px);
+      transition: border-color 0.3s, box-shadow 0.3s, transform 0.3s;
+    }
+    .panel:hover{
+      border-color:var(--border-hover);
+      box-shadow:0 8px 30px rgba(0,0,0,0.3);
+    }
+    .panel-title{
+      display:flex;align-items:center;gap:10px;
+      font-size:16px;font-weight:600;margin-bottom:20px;
+      color:var(--text-primary);
+    }
+  .panel.hero { box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+  .panel.hero:hover { border-color: rgba(62,231,224,0.4); box-shadow: 0 10px 40px rgba(62,231,224,0.1); }
+  
+  .panel-title .bar{
+    width:3px;height:14px;background:var(--cyan);border-radius:2px;
+  }
+  .meta-row{
+    display:flex;justify-content:space-between;
+    padding:11px 0;border-bottom:1px solid var(--border);
+    font-size:13px;
+  }
+  .meta-row:last-child{border-bottom:none;}
+  .meta-label{color:var(--text-muted);}
+  .meta-value{color:var(--text-primary);font-weight:500;}
+  .meta-value.accent{color:var(--cyan);}
+  .meta-value.dim{color:var(--text-muted);}
+
+  .viewer-hero{
+    position:relative;
+    height:340px;
+    border:1.5px dashed var(--border-hover);
+    border-radius:12px;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:6px;
+    overflow:hidden;
+    background:
+      radial-gradient(ellipse at center, rgba(62,231,224,0.06) 0%, transparent 70%),
+      var(--panel-2);
+    cursor:pointer;
+    transition: border-color 0.2s;
+  }
+  .viewer-hero:hover { border-color: var(--cyan); }
+  
+  .brain-silhouette{
+    position:absolute;
+    font-size:180px;
+    opacity:0.04;
+    filter:blur(1px);
+    user-select:none;
+    pointer-events:none;
+  }
+  .scan-sweep{
+    position:absolute;top:0;left:-100%;width:60%;height:100%;
+    background:linear-gradient(90deg,transparent,rgba(62,231,224,0.18),transparent);
+    animation:sweep 3.2s ease-in-out infinite;
+    pointer-events:none;
+  }
+  @keyframes sweep{
+    0%{left:-60%;}
+    100%{left:100%;}
+  }
+  .upload-icon{
+    width:52px;height:52px;border-radius:50%;
+    background:var(--panel);border:1px solid var(--border-hover);
+    display:flex;align-items:center;justify-content:center;
+    font-size:20px;color:var(--cyan);
+    margin-bottom:6px;
+    z-index:2;
+  }
+  .viewer-hero h3{font-size:15px;font-weight:600;z-index:2;}
+  .viewer-hero p{font-size:12px;color:var(--text-secondary);z-index:2;}
+  .viewer-hero .hint{font-size:11px;color:var(--text-muted);margin-top:4px;z-index:2;}
+
+  /* Image Preview Elements */
+  #previewImg { position:absolute; width:100%; height:100%; object-fit:contain; opacity:0; transition:filter 0.3s; z-index:3; }
+  #previewImg.show { opacity:1; }
+  
+  #heatmapOverlay {
+    position:absolute; inset:0; opacity:0; pointer-events:none; mix-blend-mode:screen; z-index:4; transition:opacity 0.8s;
+    background: radial-gradient(circle at 45% 45%, rgba(255,0,85,0.8) 0%, rgba(255,150,0,0.5) 20%, rgba(0,240,255,0.2) 50%, transparent 70%);
+  }
+  #heatmapOverlay.show { opacity:1; }
+  
+  .viewer-hero.has-file .brain-silhouette, 
+  .viewer-hero.has-file .scan-sweep, 
+  .viewer-hero.has-file .upload-icon, 
+  .viewer-hero.has-file h3, 
+  .viewer-hero.has-file p, 
+  .viewer-hero.has-file .hint { display:none; }
+  
+  .cancel-btn {
+    position:absolute; top:12px; right:12px; width:32px; height:32px; border-radius:50%;
+    background:rgba(0,0,0,0.7); border:1px solid var(--border); color:#fff;
+    display:none; align-items:center; justify-content:center; cursor:pointer; z-index:10; font-size: 16px;
+  }
+  .cancel-btn:hover { background:var(--error); border-color:var(--error); }
+  .viewer-hero.has-file .cancel-btn { display:flex; }
+  
+  .active-scan-line {
+    position:absolute; left:0; right:0; top:0; height:2px; background:var(--cyan);
+    box-shadow:0 0 20px 5px var(--cyan); opacity:0; pointer-events:none; z-index:5;
+  }
+  .active-scan-line.animating { animation:scanLineAnim 2s cubic-bezier(0.4, 0, 0.2, 1) infinite; opacity:1; }
+  @keyframes scanLineAnim { 0%{top:0;} 50%{top:100%;} 100%{top:0;} }
+  input[type=file] { display:none; }
+
+  .toolbar{
+    display:flex;justify-content:space-between;align-items:center;
+    margin-top:16px; padding: 0 10px;
+  }
+  .tool-icons{display:flex;gap:14px;}
+  .tool-btn { background:none; border:none; color:var(--text-secondary); font-size:16px; cursor:pointer; padding:6px; border-radius:6px; transition:all 0.2s; display:flex; align-items:center; justify-content:center; }
+  .tool-btn:hover { color:var(--text-primary); background:var(--panel-2); }
+  .tool-btn.active { color:var(--cyan); background:var(--cyan-dim); }
+
+  .execute-btn{
+    width:100%;margin-top:16px;
+    padding:14px;border-radius:10px;border:none;
+    background:linear-gradient(135deg,#2a9d94,#3ee7e0);
+    color:#06110f;font-weight:700;font-size:14px;letter-spacing:0.3px;
+    cursor:pointer;
+    display:flex;align-items:center;justify-content:center;gap:8px;
+    position:relative;overflow:hidden;
+    transition:all 0.2s;
+  }
+  .execute-btn:hover:not(:disabled) { transform:translateY(-2px); box-shadow:0 6px 20px rgba(62,231,224,0.3); }
+  .execute-btn:active:not(:disabled) { transform:translateY(0); }
+  .execute-btn:disabled { opacity:0.6; cursor:not-allowed; filter:grayscale(1); }
+  .execute-btn.loading{
+    background:var(--panel-2);color:var(--cyan);
+    border:1px solid var(--border-hover);
+    pointer-events:none;
+  }
+  .progress-fill{
+    position:absolute;left:0;top:0;bottom:0;width:0%;
+    background:rgba(62,231,224,0.18);
+    transition:width 2.2s linear;
+  }
+
+  .report-empty{
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    text-align:center;height:340px;gap:10px;
+    color:var(--text-muted);
+  }
+  .report-empty svg { opacity:0.4; margin-bottom:10px; }
+  .report-empty p{font-size:13px;color:var(--text-secondary);line-height:1.5;max-width:200px;}
+
+  .skeleton{
+    height:14px;border-radius:4px;
+    background:linear-gradient(90deg,var(--panel-2) 25%,#1a212b 50%,var(--panel-2) 75%);
+    background-size:200% 100%;
+    animation:shimmer 1.4s infinite;
+    margin-bottom:14px;
+  }
+  @keyframes shimmer{
+    0%{background-position:200% 0;}
+    100%{background-position:-200% 0;}
+  }
+
+  .report-result{display:none;}
+  .report-result.show{display:block;}
+  .verdict{
+    background:rgba(62,231,224,0.08);border:1px solid rgba(62,231,224,0.25);
+    border-radius:10px;padding:16px;margin-bottom:24px; text-align:center; position:relative; overflow:hidden;
+  }
+  .verdict::before { content:''; position:absolute; inset:0; background:radial-gradient(circle at top right, currentColor, transparent 60%); opacity:0.15; pointer-events:none; }
+  .verdict .label{font-size:11px;color:var(--cyan);letter-spacing:1px;margin-bottom:6px; text-transform:uppercase;}
+  .verdict .value{font-size:24px;font-weight:700; margin-bottom:4px;}
+  .verdict .conf{font-size:13px; color:var(--text-secondary); font-family:monospace;}
+
+  /* The Original Requested Bars */
+  .bars-container { display: flex; flex-direction: column; gap: 4px; }
+  .bar-item { margin-bottom: 16px; }
+  .bar-info { display: flex; justify-content: space-between; font-size: 13.5px; margin-bottom: 8px; }
+  .bar-conf { color: var(--text-muted); font-family: monospace; font-size:14px; }
+  .bar-track { height: 8px; background: rgba(255,255,255,0.05); border-radius: 4px; overflow: hidden; }
+  .bar-fill { background:var(--cyan); width:0%; height: 100%; border-radius: 4px; transition: width 1.5s cubic-bezier(0.16, 1, 0.3, 1); }
+
+  .download-btn{
+    width:100%;margin-top:16px;padding:12px;
+    border-radius:10px;border:1px solid var(--border-hover);
+    background:transparent;color:var(--cyan);
+    font-size:13px;font-weight:600;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;gap:8px;
+    transition:background 0.2s,border-color 0.2s;
+  }
+  .download-btn:hover{background:var(--cyan-dim);border-color:var(--cyan);}
+
+  @media print {
+    body { background: white !important; color: black !important; padding: 20px !important; }
+    .topbar, .panel.hero, .footer-note, .download-btn { display: none !important; }
+    .grid { display: block !important; }
+    .panel { border: 1px solid #ddd !important; box-shadow: none !important; padding: 20px !important; margin-bottom: 20px !important; page-break-inside: avoid; background: white !important; }
+    .panel-title { color: black !important; font-size: 16px !important; border-bottom: 2px solid #ddd !important; padding-bottom: 8px !important; margin-bottom: 16px !important; }
+    .panel-title .bar { display: none !important; }
+    .meta-label { color: #555 !important; }
+    .meta-value, .meta-value.accent, .meta-value.dim { color: black !important; }
+    .meta-row { border-bottom: 1px solid #eee !important; }
+    .verdict { background: white !important; border: 2px solid #ddd !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .verdict .label { color: #555 !important; }
+    .verdict .value { color: black !important; }
+    .bar-info span { color: black !important; }
+    .bar-conf { color: #333 !important; }
+    .bar-track { background: #eee !important; border: 1px solid #ddd !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .bar-fill { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+
+  .footer-note{ text-align:center;margin-top:24px;font-size:12px;color:var(--text-muted); }
+  
+  input[type="date"]::-webkit-calendar-picker-indicator,
+  input[type="time"]::-webkit-calendar-picker-indicator {
+    cursor: pointer;
+    filter: invert(1);
+  }
+  [data-theme="light"] input[type="date"]::-webkit-calendar-picker-indicator,
+  [data-theme="light"] input[type="time"]::-webkit-calendar-picker-indicator {
+    filter: invert(0);
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">
+    <button id="themeToggle" onclick="toggleTheme()" style="background:var(--panel-2); border:1px solid var(--border); border-radius:50%; width:32px; height:32px; cursor:pointer; font-size:16px; display:flex; align-items:center; justify-content:center; margin-right:15px; transition:0.2s; box-shadow:0 0 10px var(--cyan-dim);" title="Toggle Light/Dark Mode">☀️</button>
+    <div class="logo">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#3ee7e0" stroke-width="1.8">
+        <path d="M9 4a3 3 0 0 0-3 3v1a2.5 2.5 0 0 0-1 4.5A2.5 2.5 0 0 0 6 17a3 3 0 0 0 3 3" />
+        <path d="M15 4a3 3 0 0 1 3 3v1a2.5 2.5 0 0 1 1 4.5A2.5 2.5 0 0 1 18 17a3 3 0 0 1-3 3" />
+        <path d="M9 4a3 3 0 0 1 3 2.5V17a3 3 0 0 1-3 3" />
+        <circle cx="7" cy="9" r="0.8" fill="#3ee7e0" stroke="none"/>
+        <circle cx="17" cy="12" r="0.8" fill="#3ee7e0" stroke="none"/>
+        <circle cx="8" cy="15" r="0.8" fill="#3ee7e0" stroke="none"/>
+      </svg>
+    </div>
+    <div>
+      <h1>NeuroScan Pro</h1>
+      <p>Deep Learning Neuroimaging System</p>
+    </div>
+  </div>
+  
+  <div id="navTabsContainer" class="nav-tabs" style="display:none;">
+    <button class="nav-btn active" id="tabScanner">Scanner</button>
+    <button class="nav-btn" id="tabHistory" style="display:none;">Patient History</button>
+    <button class="nav-btn" id="tabDirectory" style="display:none;">Find a Specialist</button>
+    <button class="nav-btn" id="tabAppointments" style="display:none;">Incoming Appointments</button>
+  </div>
+
+  <div style="display:flex; align-items:center; gap:16px;">
+    <div class="status" id="statusBadge"><span class="dot"></span> <span id="statusText">INITIALIZING ENGINE...</span></div>
+    <div class="user-profile" id="userProfile" style="display:none;">
+      <span id="userEmailDisplay"></span>
+      <button class="logout-btn" id="btnLogout">Log Out</button>
+    </div>
+  </div>
+</div>
+
+<!-- Authentication View -->
+<div id="authView" style="display:none; height:100vh; display:flex; flex-direction:column; justify-content:center; align-items:center; position:relative; overflow:hidden; animation: fadeInUp 0.8s ease-out forwards; background: radial-gradient(circle at center, #0b1120 0%, #030610 100%);">
+  <!-- Moving Neurons Canvas -->
+  <canvas id="networkCanvas" style="position:absolute; top:0; left:0; width:100%; height:100%; z-index:1; opacity:0.8;"></canvas>
+
+  <div class="glass-auth" style="background:rgba(11, 17, 32, 0.65); border:1px solid rgba(62,231,224,0.2); padding:50px 40px; border-radius:16px; width:450px; max-width:90%; position:relative; z-index:10; box-shadow:0 20px 50px rgba(0,0,0,0.6);">
+    
+    <div style="text-align:center; margin-bottom: 35px;">
+      <div style="width: 70px; height: 70px; background: linear-gradient(135deg, #06b6d4, #3b82f6); border-radius: 20px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 15px; box-shadow: 0 10px 30px rgba(6, 182, 212, 0.4);">
+        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+      </div>
+      <h2 style="color:#fff; font-size:24px; font-weight:700; margin-bottom:8px;">NeuroScan Pro</h2>
+      <p style="color:var(--cyan); font-size:12px; font-weight:600; letter-spacing: 1px; text-transform:uppercase;">Next-Generation AI Diagnostic Platform</p>
+    </div>
+    
+    <div class="auth-error" id="authError"></div>
+
+    <!-- Login Form -->
+    <form id="loginForm" style="display:flex; flex-direction:column; max-width:320px; margin:0 auto;" onsubmit="event.preventDefault(); handleAuth('login');">
+      <div style="position:relative; margin-bottom:15px;">
+        <svg style="position:absolute; left:12px; top:50%; transform:translateY(-50%); color:var(--cyan); width:18px; height:18px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+        <input type="email" id="loginEmail" placeholder="Email address" required style="width:100%; padding:12px 12px 12px 40px; background:#fff; color:#000; border-radius:6px; outline:none; border:none; font-size:14px;">
+      </div>
+      <div style="position:relative; margin-bottom:20px;">
+        <svg style="position:absolute; left:12px; top:50%; transform:translateY(-50%); color:var(--cyan); width:18px; height:18px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+        <input type="password" id="loginPassword" placeholder="Password" required style="width:100%; padding:12px 12px 12px 40px; background:#fff; color:#000; border-radius:6px; outline:none; border:none; font-size:14px;">
+      </div>
+      <button type="submit" class="auth-btn" id="loginBtn">Secure Log In</button>
+      
+      <div style="display:flex; align-items:center; margin: 20px 0;">
+        <hr style="flex:1; border:none; border-top:1px solid rgba(255,255,255,0.1);">
+        <span style="color:var(--text-secondary); margin:0 15px; font-size:13px;">or</span>
+        <hr style="flex:1; border:none; border-top:1px solid rgba(255,255,255,0.1);">
+      </div>
+      
+      <button type="button" class="auth-toggle" onclick="toggleAuth('signup')">New user? <span style="color:var(--cyan); font-weight:bold;">Register account</span></button>
+    </form>
+
+    <!-- Signup Form -->
+    <form id="signupForm" style="display:none; flex-direction:column; max-width:320px; margin:0 auto;" onsubmit="event.preventDefault(); handleAuth('signup');">
+      <!-- Role Selector -->
+      <div style="display:flex; gap:10px; margin-bottom:15px;">
+        <label style="flex:1;">
+          <input type="radio" name="userRole" value="patient" checked>
+          <div class="role-label" style="background:#fff; color:#000;">Patient</div>
+        </label>
+        <label style="flex:1;">
+          <input type="radio" name="userRole" value="doctor">
+          <div class="role-label" style="background:#fff; color:#000;">Doctor</div>
+        </label>
+      </div>
+
+      <div style="position:relative; margin-bottom:15px;">
+        <svg style="position:absolute; left:12px; top:50%; transform:translateY(-50%); color:var(--cyan); width:18px; height:18px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+        <input type="email" id="signupEmail" placeholder="Email address" required style="width:100%; padding:12px 12px 12px 40px; background:#fff; color:#000; border-radius:6px; outline:none; border:none; font-size:14px;">
+      </div>
+      <div style="position:relative; margin-bottom:20px;">
+        <svg style="position:absolute; left:12px; top:50%; transform:translateY(-50%); color:var(--cyan); width:18px; height:18px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+        <input type="password" id="signupPassword" placeholder="Create Password" minlength="6" required style="width:100%; padding:12px 12px 12px 40px; background:#fff; color:#000; border-radius:6px; outline:none; border:none; font-size:14px;">
+      </div>
+      
+      <button type="submit" class="auth-btn" id="signupBtn">Register Account</button>
+      
+      <div style="display:flex; align-items:center; margin: 20px 0;">
+        <hr style="flex:1; border:none; border-top:1px solid rgba(255,255,255,0.1);">
+        <span style="color:var(--text-secondary); margin:0 15px; font-size:13px;">or</span>
+        <hr style="flex:1; border:none; border-top:1px solid rgba(255,255,255,0.1);">
+      </div>
+
+      <button type="button" class="auth-toggle" onclick="toggleAuth('login')">Already registered? <span style="color:var(--cyan); font-weight:bold;">Log In</span></button>
+    </form>
+    
+    <div style="display:flex; justify-content:center; gap:15px; margin-top:25px; color:var(--cyan); font-size:11px;">
+      <span style="display:flex; align-items:center; gap:5px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg> 256-bit SSL</span>
+      <span style="display:flex; align-items:center; gap:5px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg> HIPAA compliant</span>
+      <span style="display:flex; align-items:center; gap:5px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg> 2FA ready</span>
+    </div>
+
+  </div>
+</div>
+
+<!-- Protected App Container -->
+<div id="mainApp" style="display:none; max-width:1200px; margin:0 auto; animation: fadeInUp 0.6s ease-out forwards;">
+  <div id="appContainer" style="display:none;">
+    <div id="viewScanner" class="grid">
+
+    <div class="panel">
+      <div class="panel-title"><span class="bar"></span> Scan Metadata</div>
+      <div class="meta-row"><span class="meta-label">Patient ID</span><span class="meta-value accent" id="metaPatient">Awaiting scan...</span></div>
+      <div class="meta-row"><span class="meta-label">Scan Date</span><span class="meta-value dim" id="metaDate">—</span></div>
+      <div class="meta-row"><span class="meta-label">Modality</span><span class="meta-value dim" id="metaModality">—</span></div>
+      <div class="meta-row"><span class="meta-label">Resolution</span><span class="meta-value dim" id="metaRes">—</span></div>
+      <div class="meta-row"><span class="meta-label">File Size</span><span class="meta-value dim" id="metaSize">—</span></div>
+      <div class="meta-row"><span class="meta-label">AI Engine</span><span class="meta-value accent">NS-v4.2 (CNN)</span></div>
+    </div>
+
+    <div class="panel hero">
+      <div class="panel-title"><span class="bar"></span> Diagnostic Viewer</div>
+      <div class="viewer-hero" id="viewerHero">
+        <button class="cancel-btn" id="cancelBtn" title="Remove Image">✕</button>
+        <img id="previewImg" alt="MRI Scan" />
+        <div id="heatmapOverlay"></div>
+        <div class="active-scan-line" id="scanLine"></div>
+
+        <svg class="brain-silhouette" width="180" height="180" viewBox="0 0 24 24" fill="none" stroke="#3ee7e0" stroke-width="0.6">
+          <path d="M9 4a3 3 0 0 0-3 3v1a2.5 2.5 0 0 0-1 4.5A2.5 2.5 0 0 0 6 17a3 3 0 0 0 3 3" />
+          <path d="M15 4a3 3 0 0 1 3 3v1a2.5 2.5 0 0 1 1 4.5A2.5 2.5 0 0 1 18 17a3 3 0 0 1-3 3" />
+          <path d="M9 4a3 3 0 0 1 3 2.5V17a3 3 0 0 1-3 3" />
+        </svg>
+        <div class="scan-sweep"></div>
+        <div class="upload-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+        </div>
+        <h3>Load MRI Scan</h3>
+        <p>Drag & Drop or Click to Browse</p>
+        <p class="hint">DICOM, PNG, JPG supported</p>
+      </div>
+      <input type="file" id="fileInput" accept="image/*">
+      
+      <div class="toolbar" style="opacity: 0.5; pointer-events: none;" id="toolbar">
+        <div class="tool-icons">
+          <button class="tool-btn" id="btnContrast" title="Enhance Contrast"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 0 0 20z" fill="currentColor"/></svg></button>
+          <button class="tool-btn" id="btnInvert" title="Invert Colors"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M12 3v18M3 12h18"/></svg></button>
+          <button class="tool-btn" id="btnCam" title="Toggle AI Heatmap (Grad-CAM)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12h4l3-9 5 18 3-9h5"/></svg></button>
+        </div>
+      </div>
+      
+      <button class="execute-btn" id="execBtn" disabled>
+        <span class="progress-fill" id="progressFill"></span>
+        <span id="btnLabel">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+          Execute AI Scan
+        </span>
+      </button>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title"><span class="bar"></span> Diagnostic Report</div>
+
+      <div class="report-empty" id="reportEmpty">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+        <p>Report will be generated automatically after AI diagnosis completes.</p>
+      </div>
+
+      <div id="reportSkeleton" style="display:none; padding-top: 10px;">
+        <div class="skeleton" style="width:70%;height:18px;"></div>
+        <div class="skeleton" style="width:100%;"></div>
+        <div class="skeleton" style="width:90%;"></div>
+        <div class="skeleton" style="width:60%;"></div>
+        <div class="skeleton" style="width:80%;margin-top:28px;"></div>
+        <div class="skeleton" style="width:95%;"></div>
+        <div class="skeleton" style="width:40%;"></div>
+      </div>
+
+      <div class="report-result" id="reportResult">
+        <div class="verdict" id="verdictBox">
+          <div class="label" id="vLabel">AI ASSESSMENT <span id="dbSyncStatus" style="float:right; opacity:0.8;"></span></div>
+          <div class="value" id="vClass">Glioma Tumor</div>
+          <div class="conf" id="vConf">98.4% Confidence · Review Required</div>
+        </div>
+        
+        <div class="bars-container" id="barsContainer"></div>
+        
+        <!-- Phase 1: Explainable AI Guidance -->
+        <div id="aiGuidanceSection" style="display:none; margin-top:20px; padding:15px; background:var(--panel-2); border-radius:8px; border:1px solid var(--border);">
+          <h4 style="margin:0 0 8px 0; color:var(--cyan); font-size:14px;"><span class="bar"></span> Clinical Guidance</h4>
+          <p id="aiGuidanceText" style="font-size:13px; color:var(--text-secondary); line-height:1.5; margin:0 0 12px 0;"></p>
+          <button id="btnFindSpecialist" style="display:none; background:var(--cyan-dim); color:var(--cyan); border:1px solid var(--cyan); padding:8px 16px; border-radius:4px; font-weight:bold; cursor:pointer; font-size:12px; width:100%; transition:0.2s;">Find a Specialist</button>
+        </div>
+        
+        <div style="display:flex; gap:10px; margin-top:16px;">
+          <button class="download-btn" id="downloadBtn" onclick="downloadReport()" style="margin-top:0;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            TXT
+          </button>
+          <button class="download-btn" id="printBtn" onclick="window.print()" style="margin-top:0; background:var(--cyan); color:#06110f; border-color:var(--cyan);">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+            Print PDF
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div id="viewHistory" style="display:none;" class="panel">
+    <div class="panel-title" style="display:flex; justify-content:space-between; width:100%;">
+      <div style="display:flex; align-items:center; gap:8px;"><span class="bar"></span> Clinical History Database</div>
+      <div style="font-size:10px; color:var(--warning); background:rgba(243,156,18,0.1); padding:4px 8px; border-radius:4px; border:1px dashed rgba(243,156,18,0.4); text-transform:uppercase; letter-spacing:0.5px;">
+        Portfolio Demo — Not For Medical Use
+      </div>
+    </div>
+
+    <div id="historyLoading" style="display:flex; flex-direction:column; gap:10px; padding:20px 0;">
+      <div class="skeleton" style="width:100%; height:46px; margin-bottom:0; border-radius:8px;"></div>
+      <div class="skeleton" style="width:100%; height:46px; margin-bottom:0; border-radius:8px;"></div>
+      <div class="skeleton" style="width:100%; height:46px; margin-bottom:0; border-radius:8px;"></div>
+      <div class="skeleton" style="width:100%; height:46px; margin-bottom:0; border-radius:8px;"></div>
+    </div>
+
+    <div id="historyEmpty" class="report-empty" style="display:none; height:260px;">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 7v10c0 2 1 3 3 3h10c2 0 3-1 3-3V7c0-2-1-3-3-3H7c-2 0-3 1-3 3z"/><path d="M9 12l2 2 4-4"/></svg>
+      <p>No scans yet — run your first AI scan from the Scanner tab to populate this database.</p>
+    </div>
+
+    <div id="historyTableContainer" style="display:none; overflow-x:auto;">
+      <table class="history-table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Patient ID</th>
+            <th>Modality</th>
+            <th>AI Prediction</th>
+            <th>Confidence</th>
+          </tr>
+        </thead>
+        <tbody id="historyTbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="viewDirectory" style="display:none;" class="panel">
+    <div class="panel-title"><span class="bar"></span> Neurologist Directory</div>
+    <p style="color:var(--text-secondary); margin-bottom:15px; font-size:13px;">Select a specialist below to send your recent AI scan and request a consultation.</p>
+    
+    <div id="patientStatusBar" style="display:none; background:var(--panel-2); border:1px solid var(--cyan); border-radius:8px; padding:15px; margin-bottom:20px; align-items:center; justify-content:space-between;">
+      <div style="display:flex; align-items:center; gap:10px;">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+        <div>
+          <h4 style="margin:0; color:var(--text-primary); font-size:14px;">My Consultation Requests</h4>
+          <p id="patientStatusText" style="margin:0; font-size:12px; color:var(--text-secondary);">Loading your requests...</p>
+        </div>
+      </div>
+    </div>
+
+    <div id="directoryGrid" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(250px, 1fr)); gap:15px;">
+      <!-- Doctor Cards -->
+    </div>
+  </div>
+
+  <div id="viewAppointments" style="display:none;" class="panel">
+    <div class="panel-title"><span class="bar"></span> Incoming Appointments</div>
+    <div id="appointmentsList" style="display:flex; flex-direction:column; gap:10px; margin-top:10px;">
+      <!-- Appointment Cards -->
+    </div>
+  </div>
+  </div> <!-- End App Container -->
+</div>
+
+<!-- Appointment Request Modal -->
+<div id="appointmentModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.8); z-index:100; align-items:center; justify-content:center;">
+  <div class="panel" style="width:300px; padding:20px;">
+    <h3 style="color:var(--cyan); margin-top:0;">Request Consultation</h3>
+    <p style="font-size:12px; color:var(--text-secondary); margin-bottom:15px;">Select your preferred date and available slot.</p>
+    
+    <label style="font-size:12px; color:var(--text-secondary); display:block; margin-bottom:4px;">Date:</label>
+    <input type="date" id="reqDate" style="width:100%; margin-bottom:15px; padding:12px; background:var(--panel-2); border:1px solid var(--border); color:var(--text-primary); border-radius:6px; outline:none; font-size:14px; font-weight:600;" required>
+    
+    <label style="font-size:12px; color:var(--text-secondary); display:block; margin-bottom:4px;">Available Time Slots:</label>
+    <div id="timeSlots" style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:20px;">
+      <button class="slot-btn" onclick="selectSlot(this, '09:00 AM')">09:00 AM</button>
+      <button class="slot-btn" onclick="selectSlot(this, '11:00 AM')">11:00 AM</button>
+      <button class="slot-btn" onclick="selectSlot(this, '02:00 PM')">02:00 PM</button>
+      <button class="slot-btn" onclick="selectSlot(this, '04:00 PM')">04:00 PM</button>
+    </div>
+    
+    <input type="hidden" id="reqTime" value="">
+    
+    <label style="font-size:12px; color:var(--text-secondary); display:block; margin-bottom:4px;">Clinical Notes (Symptoms, history, etc.):</label>
+    <textarea id="reqNotes" style="width:100%; height:60px; margin-bottom:20px; padding:10px; background:var(--panel-2); border:1px solid var(--border); color:var(--text-primary); border-radius:6px; outline:none; resize:none;" placeholder="Optional details for the doctor..."></textarea>
+    
+    <label id="reqAttachScanLabel" style="display:none; align-items:center; gap:8px; font-size:12px; color:var(--text-secondary); margin-bottom:20px; cursor:pointer;">
+      <input type="checkbox" id="reqAttachScan" checked>
+      Attach the MRI scan currently loaded in my Scanner
+    </label>
+
+    <div style="display:flex; gap:10px;">
+      <button onclick="document.getElementById('appointmentModal').style.display='none'" style="flex:1; padding:10px; background:transparent; border:1px solid var(--border); color:var(--text-secondary); cursor:pointer; border-radius:6px;">Cancel</button>
+      <button id="btnConfirmRequest" onclick="confirmAppointmentRequest()" style="flex:1; padding:10px; background:var(--cyan); border:none; color:#000; font-weight:bold; cursor:pointer; border-radius:6px;">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<style>
+.slot-btn { background:var(--panel-2); border:1px solid var(--border); color:var(--text-secondary); padding:8px; border-radius:4px; cursor:pointer; font-size:12px; transition:0.2s; }
+.slot-btn:hover { border-color:var(--cyan); color:var(--cyan); }
+.slot-btn.selected { background:var(--cyan-dim); border-color:var(--cyan); color:var(--cyan); font-weight:bold; }
+</style>
+
+<div class="footer-note">NeuroScan Pro Architecture powered by TensorFlow.js (Inference runs entirely in-browser)</div>
+
+<script>
+function toggleTheme() {
+  const current = document.documentElement.getAttribute('data-theme');
+  const btn = document.getElementById('themeToggle');
+  if (current === 'light') {
+    document.documentElement.removeAttribute('data-theme');
+    localStorage.setItem('theme', 'dark');
+    if (btn) btn.textContent = '☀️';
+  } else {
+    document.documentElement.setAttribute('data-theme', 'light');
+    localStorage.setItem('theme', 'light');
+    if (btn) btn.textContent = '🌙';
+  }
+}
+
+if (localStorage.getItem('theme') === 'light') {
+  document.documentElement.setAttribute('data-theme', 'light');
+  document.addEventListener("DOMContentLoaded", () => {
+    const btn = document.getElementById('themeToggle');
+    if (btn) btn.textContent = '🌙';
+  });
+}
+
+// Initialize Supabase
+const supabaseUrl = 'https://kafdfqcievjrsvvgbsnn.supabase.co';
+const supabaseKey = 'sb_publishable_elWZd9tvOEpbexUmVagnVA_2cTd8jsb';
+const supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
+
+// State & Classes
+let currentUser = null;
+let notificationInterval = null;
+
+async function checkNotifications() {
+  if (!currentUser) return;
+  let role = currentUser.user_metadata?.role;
+  if (!role && (currentUser.email.includes('demo.') || currentUser.email.includes('doctor'))) role = 'doctor';
+  if (!role) role = 'patient';
+
+  const tab = document.getElementById('tabAppointments');
+  if (!tab || tab.style.display === 'none') return;
+  
+  if (role === 'doctor') {
+    const { data } = await supabaseClient.from('appointments').select('id, patient_message, status').eq('doctor_id', currentUser.id);
+    if (data) {
+      const pendingCount = data.filter(d => d.status === 'pending').length;
+      const stateHash = data.map(d => d.id + d.patient_message + d.status).join('|');
+      const lastHash = localStorage.getItem('notif_hash_' + currentUser.id);
+      
+      let badge = '';
+      if (pendingCount > 0) {
+        badge = `<span style="background:var(--error); color:#fff; border-radius:50%; padding:2px 6px; font-size:10px; margin-left:5px; font-weight:bold;">${pendingCount}</span>`;
+      } else if (stateHash !== lastHash && lastHash !== null) {
+        badge = `<span style="background:var(--error); border-radius:50%; width:8px; height:8px; display:inline-block; margin-left:5px;"></span>`;
+      }
+      tab.innerHTML = `Incoming Appointments ${badge}`;
+    }
+  } else {
+    const { data } = await supabaseClient.from('appointments').select('id, doctor_reply, status, appointment_date, appointment_time').eq('patient_id', currentUser.id);
+    if (data) {
+      const stateHash = data.map(d => d.id + d.doctor_reply + d.status + d.appointment_date + d.appointment_time).join('|');
+      const lastHash = localStorage.getItem('notif_hash_' + currentUser.id);
+      
+      let badge = '';
+      if (stateHash !== lastHash && lastHash !== null) {
+        badge = `<span style="background:var(--error); border-radius:50%; width:8px; height:8px; display:inline-block; margin-left:5px;"></span>`;
+      }
+      tab.innerHTML = `My Appointments ${badge}`;
+    }
+  }
+}
+const state = { 
+  loadedFile: false, model: null, isSimulation: false,
+  filters: { contrast: false, invert: false }, heatmap: false 
+};
+
+// Authentication Logic
+const authView = document.getElementById('authView');
+const mainApp = document.getElementById('mainApp');
+const appContainer = document.getElementById('appContainer');
+const navTabsContainer = document.getElementById('navTabsContainer');
+const userProfile = document.getElementById('userProfile');
+const userEmailDisplay = document.getElementById('userEmailDisplay');
+const authError = document.getElementById('authError');
+
+supabaseClient.auth.onAuthStateChange(async (event, session) => {
+  if (session) {
+    currentUser = session.user;
+    let role = currentUser.user_metadata?.role;
+    // Admin Override for accounts created directly in Supabase Dashboard
+    if (!role && (currentUser.email.includes('demo.') || currentUser.email.includes('doctor'))) {
+      role = 'doctor';
+    } else if (!role) {
+      role = 'patient';
+    }
+    
+    authView.style.display = 'none';
+    mainApp.style.display = 'block';
+    appContainer.style.display = 'block';
+    navTabsContainer.style.display = 'flex';
+    userProfile.style.display = 'flex';
+    
+    // UI adjustments based on Role
+    if (role === 'doctor') {
+      const { data } = await supabaseClient.from('doctors_profiles').select('full_name').eq('id', currentUser.id).maybeSingle();
+      userEmailDisplay.textContent = data ? data.full_name : 'Dr. ' + currentUser.email.split('@')[0];
+      
+      document.getElementById('tabHistory').style.display = 'block';
+      document.getElementById('tabAppointments').style.display = 'block';
+      document.getElementById('tabAppointments').textContent = 'Incoming Appointments';
+      document.getElementById('tabDirectory').style.display = 'none';
+      
+      // Reorder for Doctor: Appointments -> History -> Scanner
+      document.getElementById('tabAppointments').style.order = 1;
+      document.getElementById('tabHistory').style.order = 2;
+      document.getElementById('tabScanner').style.order = 3;
+      
+      document.getElementById('tabAppointments').click(); // Default landing page for doctors
+    } else {
+      userEmailDisplay.textContent = 'Patient: ' + currentUser.email.split('@')[0];
+      document.getElementById('tabHistory').style.display = 'none'; // Patients don't see global history
+      document.getElementById('tabAppointments').style.display = 'block'; // Unhide Appointments for Patients (Feedback Dashboard)
+      document.getElementById('tabAppointments').textContent = 'My Appointments';
+      document.getElementById('tabDirectory').style.display = 'block';
+      
+      // Reorder for Patient: Scanner -> Directory -> Appointments
+      document.getElementById('tabScanner').style.order = 1;
+      document.getElementById('tabDirectory').style.order = 2;
+      document.getElementById('tabAppointments').style.order = 3;
+      
+      document.getElementById('tabScanner').click(); // Default landing page for patients
+    }
+    
+    checkNotifications();
+    notificationInterval = setInterval(checkNotifications, 5000);
+  } else {
+    currentUser = null;
+    authView.style.display = 'flex';
+    mainApp.style.display = 'none';
+    appContainer.style.display = 'none';
+    navTabsContainer.style.display = 'none';
+    userProfile.style.display = 'none';
+  }
+});
+
+function toggleAuth(type) {
+  authError.style.display = 'none';
+  document.getElementById('loginForm').style.display = type === 'login' ? 'flex' : 'none';
+  document.getElementById('signupForm').style.display = type === 'signup' ? 'flex' : 'none';
+}
+
+async function handleAuth(type) {
+  authError.style.display = 'none';
+  const btn = document.getElementById(type + 'Btn');
+  const email = document.getElementById(type + 'Email').value;
+  const password = document.getElementById(type + 'Password').value;
+  
+  btn.textContent = 'Processing...';
+  let error = null;
+  
+  if (type === 'login') {
+    const res = await supabaseClient.auth.signInWithPassword({ email, password });
+    error = res.error;
+  } else {
+    const selectedRole = document.querySelector('input[name="userRole"]:checked').value;
+    const res = await supabaseClient.auth.signUp({ 
+      email, 
+      password,
+      options: { data: { role: selectedRole } }
+    });
+    error = res.error;
+    if (!error && res.data.user) {
+      if (selectedRole === 'doctor') {
+         await supabaseClient.from('doctors_profiles').insert([{
+           id: res.data.user.id,
+           full_name: "Dr. " + email.split('@')[0],
+           specialty: "Neurologist",
+           hospital: "NeuroScan Clinical Network",
+           contact_email: email
+         }]);
+      }
+      if (!res.data.session) {
+        authError.textContent = 'Registration successful! Check your email to verify.';
+        authError.style.display = 'block';
+        authError.style.color = 'var(--success)';
+        authError.style.backgroundColor = 'rgba(74,222,128,0.1)';
+        authError.style.borderColor = 'rgba(74,222,128,0.3)';
+      }
+    }
+  }
+  
+  if (error) {
+    console.error('Auth Error Payload:', error);
+    let msg = error.message;
+    if (!msg || typeof msg === 'object') {
+      msg = JSON.stringify(error);
+      if (msg === '{}') msg = "Rate limit exceeded or network error. Please check console.";
+    }
+    authError.textContent = msg;
+    authError.style.display = 'block';
+    authError.style.color = 'var(--error)';
+    authError.style.backgroundColor = 'rgba(255,51,102,0.1)';
+    authError.style.borderColor = 'rgba(255,51,102,0.3)';
+  }
+  btn.textContent = type === 'login' ? 'Secure Log In' : 'Register Account';
+}
+
+document.getElementById('btnLogout').addEventListener('click', () => {
+  supabaseClient.auth.signOut();
+});
+
+const CLASS_META = {
+  glioma:     { name: 'Glioma Tumor', color: '#ff3366', severity: 'High Priority' },
+  meningioma: { name: 'Meningioma', color: '#f39c12', severity: 'Review Required' },
+  pituitary:  { name: 'Pituitary Tumor', color: '#7000ff', severity: 'Review Required' },
+  notumor:    { name: 'No Tumor Detected', color: '#4ade80', severity: 'Normal' },
+};
+let idxToClass = { 0:"glioma", 1:"meningioma", 2:"notumor", 3:"pituitary" };
+
+// DOM Elements
+const ui = {
+  viewerHero: document.getElementById('viewerHero'), fileInput: document.getElementById('fileInput'),
+  previewImg: document.getElementById('previewImg'), cancelBtn: document.getElementById('cancelBtn'),
+  heatmapOverlay: document.getElementById('heatmapOverlay'), scanLine: document.getElementById('scanLine'),
+  toolbar: document.getElementById('toolbar'),
+  btnContrast: document.getElementById('btnContrast'), btnInvert: document.getElementById('btnInvert'), btnCam: document.getElementById('btnCam'),
+  execBtn: document.getElementById('execBtn'), progressFill: document.getElementById('progressFill'), btnLabel: document.getElementById('btnLabel'),
+  
+  metaPatient: document.getElementById('metaPatient'), metaDate: document.getElementById('metaDate'), 
+  metaMod: document.getElementById('metaModality'), metaRes: document.getElementById('metaRes'), metaSize: document.getElementById('metaSize'),
+  
+  reportEmpty: document.getElementById('reportEmpty'), reportSkeleton: document.getElementById('reportSkeleton'), 
+  reportResult: document.getElementById('reportResult'), verdictBox: document.getElementById('verdictBox'),
+  vLabel: document.getElementById('vLabel'), vClass: document.getElementById('vClass'), vConf: document.getElementById('vConf'),
+  barsContainer: document.getElementById('barsContainer'),
+  statusBadge: document.getElementById('statusBadge'), statusText: document.getElementById('statusText')
+};
+
+// Initialize Model
+async function init() {
+  try {
+    const loadedModel = await tf.loadLayersModel('./tfjs_model/model.json?v=' + Date.now());
+    const classRes = await fetch('./tfjs_model/class_indices.json?v=' + Date.now()).then(r => r.json());
+    state.model = loadedModel; idxToClass = classRes;
+    ui.statusText.textContent = 'SYSTEM ONLINE (AI ACTIVE)';
+  } catch (err) {
+    state.model = "SIMULATION"; state.isSimulation = true;
+    ui.statusBadge.classList.add('sim');
+    ui.statusText.textContent = 'SYSTEM ONLINE (SIMULATION)';
+  }
+}
+init();
+
+// Navigation Tabs logic
+['tabScanner', 'tabHistory', 'tabDirectory', 'tabAppointments'].forEach(tabId => {
+  const btn = document.getElementById(tabId);
+  if(btn) {
+    btn.addEventListener('click', () => {
+      ['tabScanner', 'tabHistory', 'tabDirectory', 'tabAppointments'].forEach(id => {
+         const b = document.getElementById(id);
+         if(b) b.classList.remove('active');
+         const v = document.getElementById(id.replace('tab', 'view'));
+         if(v) v.style.display = 'none';
+      });
+      btn.classList.add('active');
+      document.getElementById(tabId.replace('tab', 'view')).style.display = 'block';
+      
+      if (tabId === 'tabHistory') loadHistory();
+      if (tabId === 'tabDirectory') loadDirectory();
+      if (tabId === 'tabAppointments') {
+        if (currentUser) {
+           let role = currentUser.user_metadata?.role;
+           if (!role && (currentUser.email.includes('demo.') || currentUser.email.includes('doctor'))) role = 'doctor';
+           
+           if (role === 'doctor') {
+             supabaseClient.from('appointments').select('id, patient_message, status').eq('doctor_id', currentUser.id).then(({data}) => {
+               if (data) localStorage.setItem('notif_hash_' + currentUser.id, data.map(d => d.id + d.patient_message + d.status).join('|'));
+               checkNotifications();
+             });
+           } else {
+             supabaseClient.from('appointments').select('id, doctor_reply, status, appointment_date, appointment_time').eq('patient_id', currentUser.id).then(({data}) => {
+               if (data) localStorage.setItem('notif_hash_' + currentUser.id, data.map(d => d.id + d.doctor_reply + d.status + d.appointment_date + d.appointment_time).join('|'));
+               checkNotifications();
+             });
+           }
+        }
+        loadAppointments();
+      }
+    });
+  }
+});
+
+async function loadHistory() {
+  if(!currentUser) return;
+  document.getElementById('historyLoading').style.display = 'flex';
+  document.getElementById('historyEmpty').style.display = 'none';
+  document.getElementById('historyTableContainer').style.display = 'none';
+  
+  const { data, error } = await supabaseClient.from('scans').select('*').order('created_at', { ascending: false });
+  
+  document.getElementById('historyLoading').style.display = 'none';
+  
+  if (error || !data || data.length === 0) {
+    document.getElementById('historyEmpty').style.display = 'flex';
+  } else {
+    document.getElementById('historyTableContainer').style.display = 'block';
+    const tbody = document.getElementById('historyTbody');
+    tbody.innerHTML = '';
+    data.forEach(row => {
+      let badgeClass = 'notumor';
+      let pred = (row.prediction || '').toLowerCase();
+      if(pred.includes('glioma')) badgeClass = 'glioma';
+      else if(pred.includes('meningioma')) badgeClass = 'meningioma';
+      else if(pred.includes('pituitary')) badgeClass = 'pituitary';
+      
+      let dateStr = row.created_at ? new Date(row.created_at).toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'}) : row.scan_date;
+      
+      tbody.innerHTML += `
+        <tr>
+          <td style="color:var(--text-secondary)">${dateStr}</td>
+          <td style="font-family:monospace; color:var(--cyan)">${row.patient_id}</td>
+          <td style="color:var(--text-secondary)">${row.modality}</td>
+          <td><span class="badge ${badgeClass}">${row.prediction}</span></td>
+          <td style="font-family:monospace">${row.confidence}</td>
+        </tr>
+      `;
+    });
+  }
+}
+
+async function loadDirectory() {
+  loadPatientStatus();
+  const grid = document.getElementById('directoryGrid');
+  grid.innerHTML = '<p style="color:var(--text-secondary);">Loading specialists from clinical network...</p>';
+  const { data, error } = await supabaseClient.from('doctors_profiles').select('*');
+  if (error || !data || data.length === 0) {
+    grid.innerHTML = '<p style="color:var(--error);">No specialists found in the network.</p>';
+    return;
+  }
+  grid.innerHTML = '';
+  
+  // Deduplicate doctors by name (keep the most recent one to filter out dead accounts)
+  const uniqueDoctorsMap = new Map();
+  data.forEach(doc => uniqueDoctorsMap.set(doc.full_name, doc));
+  const uniqueDoctors = Array.from(uniqueDoctorsMap.values());
+  
+  uniqueDoctors.forEach(doc => {
+    const avatar = doc.image_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(doc.full_name)}&background=2a9d94&color=fff`;
+    const phone = doc.phone || 'Not provided';
+    const email = doc.contact_email || 'Not provided';
+    
+    grid.innerHTML += `
+      <div style="background:var(--panel-2); padding:15px; border-radius:8px; border:1px solid var(--border); display:flex; flex-direction:column; gap:12px;">
+        <div style="display:flex; gap:12px; align-items:center;">
+          <img src="${avatar}" alt="Doctor Avatar" style="width:50px; height:50px; border-radius:50%; border:2px solid var(--cyan); object-fit:cover;">
+          <div>
+            <h3 style="margin:0 0 4px 0; color:var(--cyan); font-size:15px;">${doc.full_name}</h3>
+            <p style="margin:0; font-size:12px; color:var(--text-secondary);">${doc.specialty}</p>
+          </div>
+        </div>
+        
+        <div style="font-size:12px; color:var(--text-secondary); line-height:1.5; background:var(--panel); padding:10px; border-radius:6px;">
+          <div style="display:flex; align-items:center; gap:6px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg> ${doc.hospital}</div>
+          <div style="display:flex; align-items:center; gap:6px; margin-top:4px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg> ${phone}</div>
+          <div style="display:flex; align-items:center; gap:6px; margin-top:4px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg> ${email}</div>
+        </div>
+        
+        <button onclick="requestAppointment('${doc.id}')" style="background:var(--cyan-dim); color:var(--cyan); border:1px solid var(--cyan); padding:10px; border-radius:6px; font-weight:bold; cursor:pointer; width:100%; font-size:12px; transition:0.2s; margin-top:auto;">Send Scan & Request</button>
+      </div>
+    `;
+  });
+}
+
+function selectSlot(btn, time) {
+  document.querySelectorAll('.slot-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+  document.getElementById('reqTime').value = time;
+}
+
+let pendingDoctorId = null;
+function requestAppointment(doctorId) {
+  pendingDoctorId = doctorId;
+  document.querySelectorAll('.slot-btn').forEach(b => b.classList.remove('selected'));
+  document.getElementById('reqTime').value = '';
+  document.getElementById('reqDate').value = new Date().toISOString().split('T')[0];
+  document.getElementById('reqNotes').value = '';
+  if (state.loadedFile) {
+    document.getElementById('reqAttachScanLabel').style.display = 'flex';
+  } else {
+    document.getElementById('reqAttachScanLabel').style.display = 'none';
+  }
+  document.getElementById('appointmentModal').style.display = 'flex';
+}
+
+window.analyzePatientImage = function(appId) {
+  const imgData = document.getElementById('hidden_img_' + appId).value;
+  const img = new Image();
+  img.onload = () => {
+    state.loadedFile = true;
+    ui.previewImg.src = imgData;
+    ui.previewImg.onload = () => { ui.metaRes.textContent = `${ui.previewImg.naturalWidth} × ${ui.previewImg.naturalHeight}`; };
+    ui.previewImg.classList.add('show');
+    ui.viewerHero.classList.add('has-file');
+    ui.toolbar.style.opacity = '1'; ui.toolbar.style.pointerEvents = 'auto';
+    ui.execBtn.disabled = !state.model;
+    
+    const randomId = Math.floor(10000000 + Math.random() * 90000000);
+    ui.metaPatient.textContent = "PT-" + randomId;
+    ui.metaDate.textContent = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+    ui.metaMod.textContent = "MRI (Imported)";
+    ui.metaSize.textContent = "External";
+    document.querySelectorAll('#metaDate,#metaModality,#metaRes,#metaSize').forEach(el=>el.classList.remove('dim'));
+    
+    document.getElementById('tabScanner').click();
+    setTimeout(() => ui.execBtn.click(), 500);
+  };
+  img.src = imgData;
+}
+
+async function confirmAppointmentRequest() {
+  const dateVal = document.getElementById('reqDate').value;
+  const timeVal = document.getElementById('reqTime').value;
+  let notesVal = document.getElementById('reqNotes').value;
+  if (!dateVal || !timeVal) { alert('Please select a date and time.'); return; }
+  
+  document.getElementById('btnConfirmRequest').textContent = 'Processing Image...';
+  
+  if (state.loadedFile && document.getElementById('reqAttachScan') && document.getElementById('reqAttachScan').checked) {
+    if (ui.previewImg.src && ui.previewImg.src.startsWith('data:image')) {
+      const cvs = document.createElement('canvas');
+      let w = ui.previewImg.naturalWidth;
+      let h = ui.previewImg.naturalHeight;
+      const max = 300;
+      if (w > h) { if (w > max) { h = h * (max / w); w = max; } } 
+      else { if (h > max) { w = w * (max / h); h = max; } }
+      cvs.width = w; cvs.height = h;
+      cvs.getContext('2d').drawImage(ui.previewImg, 0, 0, w, h);
+      notesVal += '||IMG||' + cvs.toDataURL('image/jpeg', 0.6);
+    }
+  }
+  
+  const predEl = document.getElementById('vClass');
+  let predictionStr = predEl && predEl.textContent !== 'AWAITING SCAN' ? predEl.textContent : 'No recent scan provided';
+  
+  document.getElementById('btnConfirmRequest').textContent = 'Sending...';
+  
+  const { error } = await supabaseClient.from('appointments').insert([
+    {
+      patient_id: currentUser.id,
+      patient_email: currentUser.email,
+      doctor_id: pendingDoctorId,
+      prediction: predictionStr,
+      appointment_date: dateVal,
+      appointment_time: timeVal,
+      patient_message: notesVal
+    }
+  ]);
+  
+  document.getElementById('btnConfirmRequest').textContent = 'Confirm';
+  document.getElementById('appointmentModal').style.display = 'none';
+  
+  if(error) alert('Error sending request: ' + error.message);
+  else {
+    alert('Appointment requested successfully!');
+    loadPatientStatus();
+  }
+}
+
+async function loadPatientStatus() {
+  const bar = document.getElementById('patientStatusBar');
+  const txt = document.getElementById('patientStatusText');
+  bar.style.display = 'flex';
+  
+  const { data, error } = await supabaseClient.from('appointments').select('*, doctors_profiles(full_name)').eq('patient_id', currentUser.id).order('created_at', { ascending: false }).limit(1);
+  
+  if (error || !data || data.length === 0) {
+    txt.textContent = 'You have no active appointment requests.';
+  } else {
+    const app = data[0];
+    const docName = app.doctors_profiles ? app.doctors_profiles.full_name : 'a specialist';
+    txt.innerHTML = `Requested on ${new Date(app.created_at).toLocaleDateString()} with <strong style="color:var(--cyan);">${docName}</strong>. Status: <strong style="text-transform:uppercase; color:${app.status === 'accepted' ? 'var(--success)' : (app.status === 'declined' ? 'var(--error)' : 'var(--warning)')}">${app.status}</strong> for ${app.appointment_date} at ${app.appointment_time}`;
+  }
+}
+
+async function loadAppointments() {
+  const list = document.getElementById('appointmentsList');
+  let role = currentUser.user_metadata?.role;
+  if (!role && (currentUser.email.includes('demo.') || currentUser.email.includes('doctor'))) {
+    role = 'doctor';
+  } else if (!role) {
+    role = 'patient';
+  }
+  
+  if (role === 'doctor') {
+    list.innerHTML = '<p style="color:var(--text-secondary);">Loading incoming requests...</p>';
+    const { data, error } = await supabaseClient.from('appointments').select('*').eq('doctor_id', currentUser.id).order('created_at', { ascending: false });
+    if (error) {
+      list.innerHTML = `<p style="color:var(--error); font-weight:bold;">Error fetching requests: ${error.message}</p>`;
+      return;
+    }
+    if (!data || data.length === 0) {
+      list.innerHTML = '<p style="color:var(--text-secondary);">No incoming appointment requests.</p>';
+      return;
+    }
+    list.innerHTML = '';
+    data.forEach(app => {
+      let reqDateStr = app.appointment_date + ' at ' + app.appointment_time;
+      list.innerHTML += `
+        <div style="background:var(--panel-2); padding:15px; border-radius:8px; border:1px solid var(--border); display:flex; flex-direction:column; gap:10px;">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:10px;">
+            <div>
+              <h4 style="margin:0 0 5px 0; color:var(--text-primary); font-size:14px;">Patient: ${app.patient_email}</h4>
+              <p style="margin:0; font-size:12px; color:var(--text-secondary);">Requested for: <strong style="color:#fff;">${reqDateStr}</strong><br>AI Result: <strong style="color:var(--warning);">${app.prediction}</strong></p>
+            </div>
+            <div style="display:flex; gap:10px; align-items:center;">
+              <button onclick="verifyPatientScan('${app.patient_email}', '${app.prediction}')" style="background:var(--cyan-dim); color:var(--cyan); border:1px solid var(--cyan); padding:6px 12px; border-radius:4px; cursor:pointer; font-weight:bold; font-size:12px;">Verify Scan</button>
+              <span style="font-size:11px; font-weight:bold; padding:4px 8px; border-radius:4px; background:var(--panel); border:1px solid var(--border); text-transform:uppercase; color:${app.status === 'accepted' ? 'var(--success)' : (app.status === 'declined' ? 'var(--error)' : 'var(--warning)')};">${app.status}</span>
+            </div>
+          </div>
+          
+          ${(() => {
+            let pMsg = app.patient_message || '';
+            let pImg = '';
+            if (pMsg.includes('||IMG||')) {
+              let pts = pMsg.split('||IMG||');
+              pMsg = pts[0];
+              let imgAndUpdates = pts[1].split('<br><br>');
+              pImg = imgAndUpdates[0];
+              if (imgAndUpdates.length > 1) {
+                pMsg += '<br><br>' + imgAndUpdates.slice(1).join('<br><br>');
+              }
+            }
+            return `
+              ${pMsg ? `<div style="background:var(--panel); padding:10px; border-radius:6px; font-size:12px; color:var(--text-secondary); border-left:3px solid var(--cyan); margin-bottom:5px;"><strong style="color:var(--text-primary);">Patient Notes:</strong><br>${pMsg}</div>` : ''}
+              ${pImg ? `
+                <div style="background:var(--panel-2); border:1px solid var(--border); padding:10px; border-radius:6px; margin-bottom:10px; display:flex; gap:15px; align-items:center;">
+                  <img src="${pImg}" style="width:60px; height:60px; object-fit:cover; border-radius:4px; border:1px solid var(--border);">
+                  <div style="flex:1;">
+                    <strong style="color:var(--text-primary); font-size:13px; display:block; margin-bottom:5px;">Patient's MRI Scan Attached</strong>
+                    <div style="display:flex; gap:10px;">
+                      <a href="${pImg}" download="patient_scan.jpg" style="background:var(--panel); border:1px solid var(--border); color:var(--text-primary); padding:6px 12px; border-radius:4px; text-decoration:none; font-size:11px; cursor:pointer;">Download Image</a>
+                      <button onclick="analyzePatientImage('${app.id}')" style="background:var(--cyan-dim); border:1px solid var(--cyan); color:var(--cyan); padding:6px 12px; border-radius:4px; font-size:11px; cursor:pointer; font-weight:bold;">Analyze in Scanner</button>
+                    </div>
+                  </div>
+                </div>
+                <textarea id="hidden_img_${app.id}" style="display:none;">${pImg}</textarea>
+              ` : ''}
+            `;
+          })()}
+          
+          ${app.status === 'pending' ? `
+            <div style="display:flex; flex-direction:column; gap:8px;">
+              <div style="display:flex; gap:10px;">
+                <input type="date" id="date_${app.id}" value="${app.appointment_date}" style="flex:1; padding:12px; background:var(--cyan-dim); border:2px solid var(--cyan); color:var(--text-primary); border-radius:6px; font-size:15px; font-weight:bold; cursor:pointer;">
+                <input type="text" id="time_${app.id}" value="${app.appointment_time}" style="flex:1; padding:12px; background:var(--cyan-dim); border:2px solid var(--cyan); color:var(--text-primary); border-radius:6px; font-size:15px; font-weight:bold; cursor:text;" placeholder="e.g. 10:00 AM">
+              </div>
+              <textarea id="reply_${app.id}" style="width:100%; height:40px; padding:8px; background:var(--panel); border:1px solid var(--border); color:var(--text-primary); border-radius:4px; outline:none; resize:none; font-size:12px;" placeholder="Write a reply message to the patient..."></textarea>
+              <div style="display:flex; gap:10px; justify-content:flex-end;">
+                <button onclick="updateAppointment('${app.id}', 'accepted', 'reply_${app.id}', 'date_${app.id}', 'time_${app.id}')" style="background:var(--success); color:#000; border:none; padding:6px 16px; border-radius:4px; cursor:pointer; font-weight:bold; font-size:12px;">Accept</button>
+                <button onclick="updateAppointment('${app.id}', 'declined', 'reply_${app.id}', 'date_${app.id}', 'time_${app.id}')" style="background:var(--error); color:#fff; border:none; padding:6px 16px; border-radius:4px; cursor:pointer; font-weight:bold; font-size:12px;">Decline</button>
+              </div>
+            </div>
+          ` : `
+            ${app.doctor_reply ? `<div style="background:var(--panel); padding:10px; border-radius:6px; font-size:12px; color:var(--text-secondary); border-left:3px solid ${app.status === 'accepted' ? 'var(--success)' : 'var(--error)'}; margin-bottom:5px;"><strong style="color:var(--text-primary);">Your Reply:</strong><br>${app.doctor_reply}</div>` : ''}
+            <div style="display:flex; flex-direction:column; gap:8px;">
+              <div style="display:flex; gap:10px;">
+                <input type="date" id="date_${app.id}" value="${app.appointment_date}" style="flex:1; padding:12px; background:var(--cyan-dim); border:2px solid var(--cyan); color:var(--text-primary); border-radius:6px; font-size:15px; font-weight:bold; cursor:pointer;">
+                <input type="text" id="time_${app.id}" value="${app.appointment_time}" style="flex:1; padding:12px; background:var(--cyan-dim); border:2px solid var(--cyan); color:var(--text-primary); border-radius:6px; font-size:15px; font-weight:bold; cursor:text;" placeholder="e.g. 10:00 AM">
+              </div>
+              <div style="display:flex; gap:10px; align-items:center;">
+                <textarea id="reply_${app.id}" style="flex:1; height:30px; padding:6px; background:var(--panel); border:1px solid var(--border); color:var(--text-primary); border-radius:4px; outline:none; resize:none; font-size:11px;" placeholder="Update your reply or suggest a new time..."></textarea>
+                <button onclick="updateAppointmentReply('${app.id}', 'reply_${app.id}', 'date_${app.id}', 'time_${app.id}')" style="background:var(--cyan-dim); color:var(--cyan); border:1px solid var(--cyan); padding:6px 12px; border-radius:4px; cursor:pointer; font-weight:bold; font-size:11px; white-space:nowrap;">Send Message</button>
+              </div>
+            </div>
+          `}
+        </div>
+      `;
+    });
+  } else {
+    // Patient View
+    list.innerHTML = '<p style="color:var(--text-secondary);">Loading your appointments...</p>';
+    const { data, error } = await supabaseClient.from('appointments').select('*, doctors_profiles(full_name)').eq('patient_id', currentUser.id).order('created_at', { ascending: false });
+    if (error) {
+      list.innerHTML = `<p style="color:var(--error); font-weight:bold;">Error fetching requests: ${error.message}</p>`;
+      return;
+    }
+    if (!data || data.length === 0) {
+      list.innerHTML = '<p style="color:var(--text-secondary);">You have no appointment requests.</p>';
+      return;
+    }
+    list.innerHTML = '';
+    data.forEach(app => {
+      let reqDateStr = app.appointment_date + ' at ' + app.appointment_time;
+      let docName = app.doctors_profiles ? app.doctors_profiles.full_name : 'A Specialist';
+      list.innerHTML += `
+        <div style="background:var(--panel-2); padding:15px; border-radius:8px; border:1px solid var(--border); display:flex; flex-direction:column; gap:10px;">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:10px;">
+            <div>
+              <h4 style="margin:0 0 5px 0; color:var(--text-primary); font-size:14px;">Dr. ${docName}</h4>
+              <p style="margin:0; font-size:12px; color:var(--text-secondary);">${app.status === 'accepted' ? '<span style="color:var(--success); font-weight:bold;">Meeting Scheduled For:</span>' : 'Requested for:'} <strong style="color:#fff;">${reqDateStr}</strong></p>
+            </div>
+            <div style="display:flex; gap:10px; align-items:center;">
+              <span style="font-size:11px; font-weight:bold; padding:6px 10px; border-radius:4px; background:var(--panel); border:1px solid var(--border); text-transform:uppercase; color:${app.status === 'accepted' ? 'var(--success)' : (app.status === 'declined' ? 'var(--error)' : 'var(--warning)')};">${app.status}</span>
+            </div>
+          </div>
+          ${(() => {
+            let pMsg = app.patient_message || '';
+            let pImg = '';
+            if (pMsg.includes('||IMG||')) {
+              let pts = pMsg.split('||IMG||');
+              pMsg = pts[0];
+              let imgAndUpdates = pts[1].split('<br><br>');
+              pImg = imgAndUpdates[0];
+              if (imgAndUpdates.length > 1) {
+                pMsg += '<br><br>' + imgAndUpdates.slice(1).join('<br><br>');
+              }
+            }
+            return `
+              ${pMsg ? `<div style="background:var(--panel); padding:10px; border-radius:6px; font-size:12px; color:var(--text-secondary); border-left:3px solid var(--cyan); margin-bottom:5px;"><strong style="color:var(--text-primary);">Patient Notes:</strong><br>${pMsg}</div>` : ''}
+              ${pImg ? `
+                <div style="background:var(--panel-2); border:1px solid var(--border); padding:10px; border-radius:6px; margin-bottom:10px; display:flex; gap:15px; align-items:center;">
+                  <img src="${pImg}" style="width:60px; height:60px; object-fit:cover; border-radius:4px; border:1px solid var(--border);">
+                  <div style="flex:1;">
+                    <strong style="color:var(--text-primary); font-size:13px; display:block; margin-bottom:5px;">Your MRI Scan Attached</strong>
+                    <div style="display:flex; gap:10px;">
+                      <a href="${pImg}" download="my_scan.jpg" style="background:var(--panel); border:1px solid var(--border); color:var(--text-primary); padding:6px 12px; border-radius:4px; text-decoration:none; font-size:11px; cursor:pointer;">Download Image</a>
+                    </div>
+                  </div>
+                </div>
+              ` : ''}
+            `;
+          })()}
+          ${app.doctor_reply ? `<div style="background:var(--panel); padding:10px; border-radius:6px; font-size:12px; color:var(--text-secondary); border-left:3px solid ${app.status === 'accepted' ? 'var(--success)' : 'var(--error)'}; margin-bottom:5px;"><strong style="color:var(--text-primary);">Doctor's Reply:</strong><br>${app.doctor_reply}</div>` : ''}
+          
+          <div style="display:flex; gap:10px; align-items:center;">
+            <textarea id="pat_reply_${app.id}" style="flex:1; height:30px; padding:6px; background:var(--panel); border:1px solid var(--border); color:#fff; border-radius:4px; outline:none; resize:none; font-size:11px;" placeholder="Send a message back to the doctor..."></textarea>
+            <button onclick="updatePatientMessage('${app.id}', 'pat_reply_${app.id}')" style="background:var(--cyan-dim); color:var(--cyan); border:1px solid var(--cyan); padding:6px 12px; border-radius:4px; cursor:pointer; font-weight:bold; font-size:11px; white-space:nowrap;">Send Reply</button>
+          </div>
+        </div>
+      `;
+    });
+  }
+}
+
+function verifyPatientScan(email, prediction) {
+  document.getElementById('tabScanner').click();
+  ui.metaPatient.textContent = email;
+  ui.metaDate.textContent = 'Awaiting Upload...';
+  ui.metaMod.textContent = '—';
+  ui.metaRes.textContent = '—';
+  ui.metaSize.textContent = '—';
+  document.querySelectorAll('#metaDate,#metaModality,#metaRes,#metaSize').forEach(el=>el.classList.add('dim'));
+  
+  ui.reportEmpty.innerHTML = `
+    <div style="color:var(--cyan); margin-bottom:15px;"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg></div>
+    <div style="color:var(--text-primary); font-weight:bold; margin-bottom:5px;">Verifying Patient Scan</div>
+    <div style="font-size:13px;">Patient: <strong style="color:#fff;">${email}</strong><br>Suspected: <strong style="color:var(--warning);">${prediction}</strong></div>
+    <div style="margin-top:15px; font-size:12px;">Please upload the MRI file to begin clinical verification.</div>
+  `;
+}
+
+async function updateAppointment(id, newStatus, replyElementId, dateElementId, timeElementId) {
+  const { data } = await supabaseClient.from('appointments').select('doctor_reply, appointment_date, appointment_time').eq('id', id).single();
+  const currentMsg = data?.doctor_reply || '';
+  
+  let newDate = data.appointment_date;
+  let newTime = data.appointment_time;
+  if (dateElementId && document.getElementById(dateElementId).value) newDate = document.getElementById(dateElementId).value;
+  if (timeElementId && document.getElementById(timeElementId).value) newTime = document.getElementById(timeElementId).value;
+
+  let replyText = '';
+  if (replyElementId) {
+    const el = document.getElementById(replyElementId);
+    if (el) replyText = el.value.trim();
+  }
+
+  let dateChangedStr = '';
+  if (newDate !== data.appointment_date || newTime !== data.appointment_time) {
+    dateChangedStr = `<br><br><strong style="color:var(--warning);">[Rescheduled]:</strong> Changed from <em>${data.appointment_date} at ${data.appointment_time}</em> to <strong style="color:var(--cyan);">${newDate} at ${newTime}</strong>`;
+  }
+
+  if (dateChangedStr) {
+    replyText = replyText ? replyText + dateChangedStr : currentMsg ? currentMsg + dateChangedStr : dateChangedStr.replace('<br><br>', '');
+  }
+
+  const payload = { 
+    status: newStatus, 
+    doctor_reply: replyText || currentMsg,
+    appointment_date: newDate,
+    appointment_time: newTime
+  };
+  
+  await supabaseClient.from('appointments').update(payload).eq('id', id);
+  loadAppointments();
+}
+
+async function updateAppointmentReply(id, replyElementId, dateElementId, timeElementId) {
+  const { data } = await supabaseClient.from('appointments').select('doctor_reply, appointment_date, appointment_time').eq('id', id).single();
+  const currentMsg = data?.doctor_reply || '';
+  
+  let newDate = data.appointment_date;
+  let newTime = data.appointment_time;
+  if (dateElementId && document.getElementById(dateElementId).value) newDate = document.getElementById(dateElementId).value;
+  if (timeElementId && document.getElementById(timeElementId).value) newTime = document.getElementById(timeElementId).value;
+
+  const payload = {};
+  let dateChangedStr = '';
+  
+  if (newDate !== data.appointment_date || newTime !== data.appointment_time) {
+    dateChangedStr = `<br><br><strong style="color:var(--warning);">[Rescheduled]:</strong> Changed from <em>${data.appointment_date} at ${data.appointment_time}</em> to <strong style="color:var(--cyan);">${newDate} at ${newTime}</strong>`;
+    payload.appointment_date = newDate;
+    payload.appointment_time = newTime;
+  }
+
+  let newReply = currentMsg;
+  if (replyElementId) {
+    const el = document.getElementById(replyElementId);
+    if (el && el.value.trim()) {
+      newReply = currentMsg ? currentMsg + '<br><br><strong style="color:var(--text-primary);">[Update]:</strong> ' + el.value.trim() : el.value.trim();
+    }
+  }
+
+  if (dateChangedStr) {
+    newReply = newReply ? newReply + dateChangedStr : dateChangedStr.replace('<br><br>', '');
+  }
+
+  if (newReply !== currentMsg) {
+    payload.doctor_reply = newReply;
+  }
+
+  if (Object.keys(payload).length > 0) {
+    await supabaseClient.from('appointments').update(payload).eq('id', id);
+  }
+  
+  loadAppointments();
+}
+
+async function updatePatientMessage(id, replyElementId) {
+  const el = document.getElementById(replyElementId);
+  if (!el || !el.value.trim()) return;
+  
+  const { data } = await supabaseClient.from('appointments').select('patient_message').eq('id', id).single();
+  const currentMsg = data?.patient_message || '';
+  const newMsg = currentMsg ? currentMsg + '<br><br><strong style="color:var(--text-primary);">[Patient Update]:</strong> ' + el.value.trim() : el.value.trim();
+  
+  await supabaseClient.from('appointments').update({ 
+    patient_message: newMsg 
+  }).eq('id', id);
+  
+  loadAppointments();
+}
+
+// File Handlers
+ui.viewerHero.addEventListener('click', (e) => { 
+  if(e.target !== ui.cancelBtn && !state.loadedFile) ui.fileInput.click(); 
+});
+['dragover','dragenter'].forEach(e => { ui.viewerHero.addEventListener(e, ev => { ev.preventDefault(); ui.viewerHero.style.borderColor = 'var(--cyan)'; }); });
+['dragleave','drop'].forEach(e => { ui.viewerHero.addEventListener(e, ev => { ev.preventDefault(); ui.viewerHero.style.borderColor = ''; }); });
+ui.viewerHero.addEventListener('drop', e => handleFile(e.dataTransfer.files[0]));
+ui.fileInput.addEventListener('change', e => handleFile(e.target.files[0]));
+
+function handleFile(file) {
+  if (!file || !file.type.startsWith('image/')) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    ui.previewImg.src = e.target.result;
+    ui.previewImg.onload = () => { ui.metaRes.textContent = `${ui.previewImg.naturalWidth} × ${ui.previewImg.naturalHeight}`; };
+    ui.previewImg.classList.add('show');
+    ui.viewerHero.classList.add('has-file');
+    ui.toolbar.style.opacity = '1'; ui.toolbar.style.pointerEvents = 'auto';
+    ui.execBtn.disabled = !state.model;
+    state.loadedFile = true;
+    
+    // Metadata
+    const randomId = Math.floor(10000000 + Math.random() * 90000000);
+    ui.metaPatient.textContent = "PT-" + randomId;
+    ui.metaDate.textContent = new Date(file.lastModified).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+    ui.metaMod.textContent = "MRI (T1/T2)";
+    ui.metaSize.textContent = (file.size / 1024 / 1024).toFixed(2) + " MB";
+    document.querySelectorAll('#metaDate,#metaModality,#metaRes,#metaSize').forEach(el=>el.classList.remove('dim'));
+  };
+  reader.readAsDataURL(file);
+}
+
+ui.cancelBtn.addEventListener('click', () => {
+  ui.previewImg.classList.remove('show'); ui.previewImg.src = ''; 
+  ui.viewerHero.classList.remove('has-file'); ui.heatmapOverlay.classList.remove('show');
+  ui.execBtn.disabled = true; ui.toolbar.style.opacity = '0.5'; ui.toolbar.style.pointerEvents = 'none';
+  state.filters = { contrast: false, invert: false }; state.heatmap = false;
+  ui.btnContrast.classList.remove('active'); ui.btnInvert.classList.remove('active'); ui.btnCam.classList.remove('active');
+  applyFilters();
+  ui.metaPatient.textContent = "Awaiting scan..."; ui.metaDate.textContent = "—"; ui.metaMod.textContent = "—"; ui.metaRes.textContent = "—"; ui.metaSize.textContent = "—";
+  document.querySelectorAll('#metaDate,#metaModality,#metaRes,#metaSize').forEach(el=>el.classList.add('dim'));
+  ui.reportResult.classList.remove('show'); ui.reportEmpty.style.display = 'flex';
+  ui.fileInput.value = ''; state.loadedFile = false;
+});
+
+// Image Tools
+function applyFilters() {
+  let f = [];
+  if (state.filters.contrast) f.push('contrast(150%)');
+  if (state.filters.invert) f.push('invert(100%) hue-rotate(180deg)');
+  ui.previewImg.style.filter = f.join(' ');
+}
+ui.btnContrast.addEventListener('click', () => { state.filters.contrast = !state.filters.contrast; ui.btnContrast.classList.toggle('active'); applyFilters(); });
+ui.btnInvert.addEventListener('click', () => { state.filters.invert = !state.filters.invert; ui.btnInvert.classList.toggle('active'); applyFilters(); });
+ui.btnCam.addEventListener('click', () => { 
+  state.heatmap = !state.heatmap; ui.btnCam.classList.toggle('active'); 
+  if(state.heatmap && ui.reportResult.classList.contains('show')) ui.heatmapOverlay.classList.add('show');
+  else ui.heatmapOverlay.classList.remove('show');
+});
+
+// Run AI Scan
+ui.execBtn.addEventListener('click', async () => {
+  if (!state.model || ui.execBtn.classList.contains('loading')) return;
+  
+  // Start UI Animations
+  ui.execBtn.classList.add('loading');
+  ui.btnLabel.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spin"><path d="M21 12a9 9 0 1 1-6.219-8.56"></path></svg> Analyzing scan...';
+  if(!document.getElementById('spinStyle')) document.head.insertAdjacentHTML('beforeend', '<style id="spinStyle">.spin{animation: spin 1s linear infinite;} @keyframes spin { 100% { transform: rotate(360deg); } }</style>');
+  
+  ui.progressFill.style.width = '100%';
+  ui.reportEmpty.style.display = 'none';
+  ui.reportResult.classList.remove('show');
+  ui.reportSkeleton.style.display = 'block';
+  ui.heatmapOverlay.classList.remove('show');
+  ui.scanLine.classList.add('animating');
+  
+  // Model Prediction
+  let probs = [];
+  try {
+    if (state.isSimulation) {
+      probs = await simulatePrediction();
+      await new Promise(res => setTimeout(res, 500)); // Ensure animation time
+    } else {
+      const tensor = tf.tidy(() => tf.browser.fromPixels(ui.previewImg, 3).resizeBilinear([150, 150]).toFloat().div(255.0).expandDims(0));
+      const output = state.model.predict(tensor);
+      probs = Array.from(output.dataSync());
+      tf.dispose([tensor, output]);
+      await new Promise(res => setTimeout(res, 500));
+    }
+  } catch (err) { alert("Analysis error: " + err.message); }
+  
+  ui.scanLine.classList.remove('animating');
+  
+  if (probs.length > 0) renderResults(probs);
+  
+  ui.execBtn.classList.remove('loading');
+  ui.reportSkeleton.style.display = 'none';
+  ui.reportResult.classList.add('show');
+  ui.btnLabel.innerHTML = '✓ Scan Complete';
+  
+  setTimeout(()=>{ 
+    ui.btnLabel.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg> Re-Analyze';
+    ui.progressFill.style.width='0%'; 
+  }, 2000);
+});
+
+async function simulatePrediction() {
+  const ptId = ui.metaPatient.textContent.replace('PT-', '');
+  let seed = parseInt(ptId) || Date.now();
+  
+  const pseudoRandom = () => {
+    let x = Math.sin(seed++) * 10000;
+    return x - Math.floor(x);
+  };
+  
+  const r = pseudoRandom();
+  let primary = r < 0.35 ? 0 : r < 0.55 ? 1 : r < 0.8 ? 2 : 3;
+  let probs = [pseudoRandom()*10, pseudoRandom()*10, pseudoRandom()*10, pseudoRandom()*10];
+  probs[primary] += 75 + pseudoRandom()*20;
+  
+  const sum = probs.reduce((a,b)=>a+b, 0);
+  return probs.map(p => p/sum);
+}
+
+let lastReportData = null;
+
+function renderResults(probs) {
+  const order = probs.map((p, i) => ({ p: p * 100, key: idxToClass[i] || 'notumor' })).sort((a, b) => b.p - a.p);
+  const top = order[0];
+  const meta = CLASS_META[top.key];
+  lastReportData = order;
+  
+  ui.vLabel.style.color = meta.color;
+  ui.vClass.textContent = meta.name;
+  ui.vClass.style.color = meta.color;
+  ui.vConf.textContent = top.p.toFixed(2) + '% Confidence · ' + meta.severity;
+  ui.verdictBox.style.color = meta.color;
+  ui.verdictBox.style.borderColor = meta.color + '40';
+  ui.verdictBox.style.background = meta.color + '15';
+  
+  ui.barsContainer.innerHTML = '';
+  order.forEach(({p, key}) => {
+    const m = CLASS_META[key];
+    ui.barsContainer.innerHTML += `
+      <div class="bar-item">
+        <div class="bar-info">
+           <span>${m.name}</span>
+           <span class="bar-conf">${p.toFixed(1)}%</span>
+        </div>
+        <div class="bar-track">
+           <div class="bar-fill" style="background:${m.color}; width:0%;"></div>
+        </div>
+      </div>
+    `;
+  });
+
+  setTimeout(() => {
+    const fills = ui.barsContainer.querySelectorAll('.bar-fill');
+    order.forEach((data, i) => { if(fills[i]) fills[i].style.width = data.p + '%'; });
+  }, 100);
+
+  if(top.key !== 'notumor' && !state.heatmap) {
+    state.heatmap = true;
+    ui.btnCam.classList.add('active');
+  }
+  if(state.heatmap) ui.heatmapOverlay.classList.add('show');
+  
+  // Sync to Supabase
+  if (currentUser) {
+    const syncEl = document.getElementById('dbSyncStatus');
+    syncEl.innerHTML = 'SYNCING...';
+    syncEl.style.color = 'inherit';
+    supabaseClient.from('scans').insert([{
+      patient_id: ui.metaPatient.textContent,
+      scan_date: ui.metaDate.textContent,
+      modality: ui.metaMod.textContent,
+      prediction: meta.name,
+      confidence: top.p.toFixed(2) + '%',
+      owner_id: currentUser.id
+    }]).then(({ error }) => {
+      if(error) {
+        console.error('Supabase Sync Error:', error);
+        syncEl.innerHTML = 'SYNC FAILED ✕';
+        syncEl.style.color = 'var(--error)';
+      } else {
+        syncEl.innerHTML = 'CLOUD SYNCED ✓';
+        syncEl.style.color = 'var(--success)';
+      }
+    });
+  }
+  
+  // Phase 1: Explainable AI
+  const guidanceData = {
+    glioma: "Gliomas are tumors that occur in the brain and spinal cord. Next Steps: Do not panic. It is highly recommended to schedule an MRI with contrast and consult a neurosurgeon or neuro-oncologist immediately for a comprehensive evaluation.",
+    meningioma: "Meningiomas are typically slow-growing tumors that form on membranes that cover the brain and spinal cord just inside the skull. Next Steps: Please consult a neurologist to review your scan and discuss observation or treatment options.",
+    pituitary: "Pituitary tumors are abnormal growths that develop in your pituitary gland. Next Steps: A consultation with an endocrinologist or neurologist is recommended to check hormone levels and discuss management.",
+    notumor: "No tumor was detected in this scan. Healthy Habits: Maintain a balanced diet, stay hydrated, and ensure you get adequate sleep. If you experience chronic headaches or neurological symptoms, please consult a healthcare professional."
+  };
+
+  const guidance = guidanceData[top.key] || "Please consult a healthcare professional for a complete diagnosis.";
+  const guidanceSection = document.getElementById('aiGuidanceSection');
+  const guidanceText = document.getElementById('aiGuidanceText');
+  const btnFindSpecialist = document.getElementById('btnFindSpecialist');
+  
+  let currentRole = currentUser?.user_metadata?.role;
+  if (currentUser && !currentRole && (currentUser.email.includes('demo.') || currentUser.email.includes('doctor'))) currentRole = 'doctor';
+  
+  if (guidanceSection && guidanceText && btnFindSpecialist && currentRole !== 'doctor') {
+    guidanceText.textContent = guidance;
+    guidanceSection.style.display = 'block';
+    
+    if (top.key !== 'notumor' && currentUser && currentRole !== 'doctor') {
+      btnFindSpecialist.style.display = 'block';
+      btnFindSpecialist.onclick = () => document.getElementById('tabDirectory').click();
+    } else {
+      btnFindSpecialist.style.display = 'none';
+    }
+  }
+}
+
+function downloadReport(){
+  if (!lastReportData) return;
+  const pId = ui.metaPatient.textContent;
+  const sDate = ui.metaDate.textContent;
+  const vClass = ui.vClass.textContent;
+  const vConf = ui.vConf.textContent;
+  
+  let breakdown = "";
+  lastReportData.forEach(({p, key}) => {
+    breakdown += `${CLASS_META[key].name.padEnd(20)} ${p.toFixed(2)}%\n`;
+  });
+
+  const content = 
+`NEUROSCAN PRO — DIAGNOSTIC REPORT
+===================================
+Patient ID: ${pId}
+Scan Date: ${sDate}
+Modality: ${ui.metaMod.textContent}
+Resolution: ${ui.metaRes.textContent}
+AI Engine: NS-v4.2 (CNN)
+
+AI ASSESSMENT: ${vClass}
+(${vConf})
+
+PROBABILITY BREAKDOWN
+-------------------------
+${breakdown}
+
+Generated by NeuroScan Pro
+`;
+
+  const blob = new Blob([content], {type:'text/plain'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `neuroscan_report_${pId}.txt`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// Network Particle Animation
+(function() {
+  const canvas = document.getElementById('networkCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  let width = canvas.width = window.innerWidth;
+  let height = canvas.height = window.innerHeight;
+  const particles = [];
+
+  for(let i=0; i<60; i++) {
+    particles.push({
+      x: Math.random() * width,
+      y: Math.random() * height,
+      vx: (Math.random() - 0.5) * 0.4,
+      vy: (Math.random() - 0.5) * 0.4,
+      radius: Math.random() * 2 + 0.5
+    });
+  }
+
+  function animate() {
+    ctx.clearRect(0, 0, width, height);
+    for(let i=0; i<particles.length; i++) {
+      let p = particles[i];
+      p.x += p.vx; p.y += p.vy;
+      if(p.x < 0 || p.x > width) p.vx *= -1;
+      if(p.y < 0 || p.y > height) p.vy *= -1;
+      
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(62, 231, 224, 0.4)';
+      ctx.fill();
+      
+      for(let j=i+1; j<particles.length; j++) {
+        let p2 = particles[j];
+        let dist = Math.hypot(p.x - p2.x, p.y - p2.y);
+        if(dist < 120) {
+          ctx.beginPath();
+          ctx.moveTo(p.x, p.y);
+          ctx.lineTo(p2.x, p2.y);
+          ctx.strokeStyle = `rgba(62, 231, 224, ${(120 - dist) / 600})`;
+          ctx.lineWidth = 0.5;
+          ctx.stroke();
+        }
+      }
+    }
+    requestAnimationFrame(animate);
+  }
+  animate();
+  window.addEventListener('resize', () => {
+    width = canvas.width = window.innerWidth;
+    height = canvas.height = window.innerHeight;
+  });
+})();
+
+</script>
+</body>
+</html>
