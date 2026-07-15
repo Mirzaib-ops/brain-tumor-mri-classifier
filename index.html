@@ -21,6 +21,18 @@
     --warning:#f39c12;
     --error:#ff3366;
   }
+  [data-theme="light"] {
+    --bg:#f0f2f5;
+    --panel:#ffffff;
+    --panel-2:#f8f9fa;
+    --border:#d1d5db;
+    --border-hover:#9ca3af;
+    --cyan:#0891b2;
+    --cyan-dim:rgba(8,145,178,0.15);
+    --text-primary:#111827;
+    --text-secondary:#4b5563;
+    --text-muted:#6b7280;
+  }
   *{box-sizing:border-box;margin:0;padding:0;}
   body{
     background:var(--bg);
@@ -349,6 +361,7 @@
   <div style="display:flex; align-items:center; gap:16px;">
     <div class="status" id="statusBadge"><span class="dot"></span> <span id="statusText">INITIALIZING ENGINE...</span></div>
     <div class="user-profile" id="userProfile" style="display:none;">
+      <button id="themeToggle" onclick="toggleTheme()" style="background:transparent; border:none; cursor:pointer; font-size:16px;" title="Toggle Light/Dark Mode">☀️</button>
       <span id="userEmailDisplay"></span>
       <button class="logout-btn" id="btnLogout">Log Out</button>
     </div>
@@ -565,7 +578,7 @@
     <p style="font-size:12px; color:var(--text-secondary); margin-bottom:15px;">Select your preferred date and available slot.</p>
     
     <label style="font-size:12px; color:var(--text-secondary); display:block; margin-bottom:4px;">Date:</label>
-    <input type="date" id="reqDate" style="width:100%; margin-bottom:15px; padding:10px; background:var(--panel-2); border:1px solid var(--border); color:#fff; border-radius:6px; outline:none;" required>
+    <input type="date" id="reqDate" style="width:100%; margin-bottom:15px; padding:12px; background:var(--panel-2); border:1px solid var(--border); color:var(--text-primary); border-radius:6px; outline:none; font-size:14px; font-weight:600;" required>
     
     <label style="font-size:12px; color:var(--text-secondary); display:block; margin-bottom:4px;">Available Time Slots:</label>
     <div id="timeSlots" style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:20px;">
@@ -578,7 +591,7 @@
     <input type="hidden" id="reqTime" value="">
     
     <label style="font-size:12px; color:var(--text-secondary); display:block; margin-bottom:4px;">Clinical Notes (Symptoms, history, etc.):</label>
-    <textarea id="reqNotes" style="width:100%; height:60px; margin-bottom:20px; padding:10px; background:var(--panel-2); border:1px solid var(--border); color:#fff; border-radius:6px; outline:none; resize:none;" placeholder="Optional details for the doctor..."></textarea>
+    <textarea id="reqNotes" style="width:100%; height:60px; margin-bottom:20px; padding:10px; background:var(--panel-2); border:1px solid var(--border); color:var(--text-primary); border-radius:6px; outline:none; resize:none;" placeholder="Optional details for the doctor..."></textarea>
     
     <div style="display:flex; gap:10px;">
       <button onclick="document.getElementById('appointmentModal').style.display='none'" style="flex:1; padding:10px; background:transparent; border:1px solid var(--border); color:var(--text-secondary); cursor:pointer; border-radius:6px;">Cancel</button>
@@ -596,6 +609,28 @@
 <div class="footer-note">NeuroScan Pro Architecture powered by TensorFlow.js (Inference runs entirely in-browser)</div>
 
 <script>
+function toggleTheme() {
+  const current = document.documentElement.getAttribute('data-theme');
+  const btn = document.getElementById('themeToggle');
+  if (current === 'light') {
+    document.documentElement.removeAttribute('data-theme');
+    localStorage.setItem('theme', 'dark');
+    if (btn) btn.textContent = '☀️';
+  } else {
+    document.documentElement.setAttribute('data-theme', 'light');
+    localStorage.setItem('theme', 'light');
+    if (btn) btn.textContent = '🌙';
+  }
+}
+
+if (localStorage.getItem('theme') === 'light') {
+  document.documentElement.setAttribute('data-theme', 'light');
+  document.addEventListener("DOMContentLoaded", () => {
+    const btn = document.getElementById('themeToggle');
+    if (btn) btn.textContent = '🌙';
+  });
+}
+
 // Initialize Supabase
 const supabaseUrl = 'https://kafdfqcievjrsvvgbsnn.supabase.co';
 const supabaseKey = 'sb_publishable_elWZd9tvOEpbexUmVagnVA_2cTd8jsb';
@@ -1038,10 +1073,10 @@ async function loadAppointments() {
           ${app.status === 'pending' ? `
             <div style="display:flex; flex-direction:column; gap:8px;">
               <div style="display:flex; gap:10px;">
-                <input type="date" id="date_${app.id}" value="${app.appointment_date}" style="flex:1; padding:6px; background:var(--panel); border:1px solid var(--border); color:#fff; border-radius:4px; font-size:11px;">
-                <input type="time" id="time_${app.id}" value="${app.appointment_time}" style="flex:1; padding:6px; background:var(--panel); border:1px solid var(--border); color:#fff; border-radius:4px; font-size:11px;">
+                <input type="date" id="date_${app.id}" value="${app.appointment_date}" style="flex:1; padding:10px; background:var(--panel-2); border:1px solid var(--border); color:var(--text-primary); border-radius:6px; font-size:13px; font-weight:bold;">
+                <input type="time" id="time_${app.id}" value="${app.appointment_time}" style="flex:1; padding:10px; background:var(--panel-2); border:1px solid var(--border); color:var(--text-primary); border-radius:6px; font-size:13px; font-weight:bold;">
               </div>
-              <textarea id="reply_${app.id}" style="width:100%; height:40px; padding:8px; background:var(--panel); border:1px solid var(--border); color:#fff; border-radius:4px; outline:none; resize:none; font-size:12px;" placeholder="Write a reply message to the patient..."></textarea>
+              <textarea id="reply_${app.id}" style="width:100%; height:40px; padding:8px; background:var(--panel); border:1px solid var(--border); color:var(--text-primary); border-radius:4px; outline:none; resize:none; font-size:12px;" placeholder="Write a reply message to the patient..."></textarea>
               <div style="display:flex; gap:10px; justify-content:flex-end;">
                 <button onclick="updateAppointment('${app.id}', 'accepted', 'reply_${app.id}', 'date_${app.id}', 'time_${app.id}')" style="background:var(--success); color:#000; border:none; padding:6px 16px; border-radius:4px; cursor:pointer; font-weight:bold; font-size:12px;">Accept</button>
                 <button onclick="updateAppointment('${app.id}', 'declined', 'reply_${app.id}', 'date_${app.id}', 'time_${app.id}')" style="background:var(--error); color:#fff; border:none; padding:6px 16px; border-radius:4px; cursor:pointer; font-weight:bold; font-size:12px;">Decline</button>
@@ -1051,11 +1086,11 @@ async function loadAppointments() {
             ${app.doctor_reply ? `<div style="background:var(--panel); padding:10px; border-radius:6px; font-size:12px; color:var(--text-secondary); border-left:3px solid ${app.status === 'accepted' ? 'var(--success)' : 'var(--error)'}; margin-bottom:5px;"><strong style="color:var(--text-primary);">Your Reply:</strong><br>${app.doctor_reply}</div>` : ''}
             <div style="display:flex; flex-direction:column; gap:8px;">
               <div style="display:flex; gap:10px;">
-                <input type="date" id="date_${app.id}" value="${app.appointment_date}" style="flex:1; padding:6px; background:var(--panel); border:1px solid var(--border); color:#fff; border-radius:4px; font-size:11px;">
-                <input type="time" id="time_${app.id}" value="${app.appointment_time}" style="flex:1; padding:6px; background:var(--panel); border:1px solid var(--border); color:#fff; border-radius:4px; font-size:11px;">
+                <input type="date" id="date_${app.id}" value="${app.appointment_date}" style="flex:1; padding:10px; background:var(--panel-2); border:1px solid var(--border); color:var(--text-primary); border-radius:6px; font-size:13px; font-weight:bold;">
+                <input type="time" id="time_${app.id}" value="${app.appointment_time}" style="flex:1; padding:10px; background:var(--panel-2); border:1px solid var(--border); color:var(--text-primary); border-radius:6px; font-size:13px; font-weight:bold;">
               </div>
               <div style="display:flex; gap:10px; align-items:center;">
-                <textarea id="reply_${app.id}" style="flex:1; height:30px; padding:6px; background:var(--panel); border:1px solid var(--border); color:#fff; border-radius:4px; outline:none; resize:none; font-size:11px;" placeholder="Update your reply or suggest a new time..."></textarea>
+                <textarea id="reply_${app.id}" style="flex:1; height:30px; padding:6px; background:var(--panel); border:1px solid var(--border); color:var(--text-primary); border-radius:4px; outline:none; resize:none; font-size:11px;" placeholder="Update your reply or suggest a new time..."></textarea>
                 <button onclick="updateAppointmentReply('${app.id}', 'reply_${app.id}', 'date_${app.id}', 'time_${app.id}')" style="background:var(--cyan-dim); color:var(--cyan); border:1px solid var(--cyan); padding:6px 12px; border-radius:4px; cursor:pointer; font-weight:bold; font-size:11px; white-space:nowrap;">Send Message</button>
               </div>
             </div>
