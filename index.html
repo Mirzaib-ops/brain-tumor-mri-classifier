@@ -562,15 +562,33 @@
 <div id="appointmentModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.8); z-index:100; align-items:center; justify-content:center;">
   <div class="panel" style="width:300px; padding:20px;">
     <h3 style="color:var(--cyan); margin-top:0;">Request Consultation</h3>
-    <p style="font-size:12px; color:var(--text-secondary); margin-bottom:15px;">Select your preferred date and time.</p>
-    <input type="date" id="reqDate" style="width:100%; margin-bottom:10px; padding:10px; background:var(--panel-2); border:1px solid var(--border); color:#fff; border-radius:6px; outline:none;" required>
-    <input type="time" id="reqTime" style="width:100%; margin-bottom:15px; padding:10px; background:var(--panel-2); border:1px solid var(--border); color:#fff; border-radius:6px; outline:none;" required>
+    <p style="font-size:12px; color:var(--text-secondary); margin-bottom:15px;">Select your preferred date and available slot.</p>
+    
+    <label style="font-size:12px; color:var(--text-secondary); display:block; margin-bottom:4px;">Date:</label>
+    <input type="date" id="reqDate" style="width:100%; margin-bottom:15px; padding:10px; background:var(--panel-2); border:1px solid var(--border); color:#fff; border-radius:6px; outline:none;" required>
+    
+    <label style="font-size:12px; color:var(--text-secondary); display:block; margin-bottom:4px;">Available Time Slots:</label>
+    <div id="timeSlots" style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:20px;">
+      <button class="slot-btn" onclick="selectSlot(this, '09:00 AM')">09:00 AM</button>
+      <button class="slot-btn" onclick="selectSlot(this, '11:00 AM')">11:00 AM</button>
+      <button class="slot-btn" onclick="selectSlot(this, '02:00 PM')">02:00 PM</button>
+      <button class="slot-btn" onclick="selectSlot(this, '04:00 PM')">04:00 PM</button>
+    </div>
+    
+    <input type="hidden" id="reqTime" value="">
+    
     <div style="display:flex; gap:10px;">
       <button onclick="document.getElementById('appointmentModal').style.display='none'" style="flex:1; padding:10px; background:transparent; border:1px solid var(--border); color:var(--text-secondary); cursor:pointer; border-radius:6px;">Cancel</button>
       <button id="btnConfirmRequest" style="flex:1; padding:10px; background:var(--cyan); border:none; color:#000; font-weight:bold; cursor:pointer; border-radius:6px;">Confirm</button>
     </div>
   </div>
 </div>
+
+<style>
+.slot-btn { background:var(--panel-2); border:1px solid var(--border); color:var(--text-secondary); padding:8px; border-radius:4px; cursor:pointer; font-size:12px; transition:0.2s; }
+.slot-btn:hover { border-color:var(--cyan); color:var(--cyan); }
+.slot-btn.selected { background:var(--cyan-dim); border-color:var(--cyan); color:var(--cyan); font-weight:bold; }
+</style>
 
 <div class="footer-note">NeuroScan Pro Architecture powered by TensorFlow.js (Inference runs entirely in-browser)</div>
 
@@ -617,9 +635,9 @@ supabaseClient.auth.onAuthStateChange(async (event, session) => {
     } else {
       userEmailDisplay.textContent = 'Patient: ' + currentUser.email.split('@')[0];
       document.getElementById('tabHistory').style.display = 'none'; // Patients don't see global history
-      document.getElementById('tabAppointments').style.display = 'none';
+      document.getElementById('tabAppointments').style.display = 'block'; // Unhide Appointments for Patients (Feedback Dashboard)
       document.getElementById('tabDirectory').style.display = 'block';
-      document.getElementById('tabScanner').click(); // Force them to scanner view
+      document.getElementById('tabScanner').click(); // Default landing page for patients
     }
   } else {
     currentUser = null;
@@ -834,9 +852,18 @@ async function loadDirectory() {
   });
 }
 
+function selectSlot(btn, time) {
+  document.querySelectorAll('.slot-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+  document.getElementById('reqTime').value = time;
+}
+
 let pendingDoctorId = null;
 function requestAppointment(doctorId) {
   pendingDoctorId = doctorId;
+  document.querySelectorAll('.slot-btn').forEach(b => b.classList.remove('selected'));
+  document.getElementById('reqTime').value = '';
+  document.getElementById('reqDate').value = new Date().toISOString().split('T')[0];
   document.getElementById('appointmentModal').style.display = 'flex';
 }
 
@@ -845,7 +872,7 @@ document.getElementById('btnConfirmRequest').addEventListener('click', async () 
   const timeVal = document.getElementById('reqTime').value;
   if (!dateVal || !timeVal) { alert('Please select a date and time.'); return; }
   
-  const predEl = document.getElementById('reportPrediction');
+  const predEl = document.getElementById('vClass');
   let predictionStr = predEl && predEl.textContent !== 'AWAITING SCAN' ? predEl.textContent : 'No recent scan provided';
   
   document.getElementById('btnConfirmRequest').textContent = 'Sending...';
@@ -888,31 +915,59 @@ async function loadPatientStatus() {
 
 async function loadAppointments() {
   const list = document.getElementById('appointmentsList');
-  list.innerHTML = '<p style="color:var(--text-secondary);">Loading appointments...</p>';
-  const { data, error } = await supabaseClient.from('appointments').select('*').order('created_at', { ascending: false });
-  if (error || !data || data.length === 0) {
-    list.innerHTML = '<p style="color:var(--text-secondary);">No incoming appointment requests.</p>';
-    return;
+  const role = currentUser.user_metadata?.role || 'patient';
+  
+  if (role === 'doctor') {
+    list.innerHTML = '<p style="color:var(--text-secondary);">Loading incoming requests...</p>';
+    const { data, error } = await supabaseClient.from('appointments').select('*').eq('doctor_id', currentUser.id).order('created_at', { ascending: false });
+    if (error || !data || data.length === 0) {
+      list.innerHTML = '<p style="color:var(--text-secondary);">No incoming appointment requests.</p>';
+      return;
+    }
+    list.innerHTML = '';
+    data.forEach(app => {
+      let reqDateStr = app.appointment_date + ' at ' + app.appointment_time;
+      list.innerHTML += `
+        <div style="background:var(--panel-2); padding:15px; border-radius:8px; border:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+          <div>
+            <h4 style="margin:0 0 5px 0; color:var(--text-primary); font-size:14px;">Patient: ${app.patient_email}</h4>
+            <p style="margin:0; font-size:12px; color:var(--text-secondary);">Requested for: <strong style="color:#fff;">${reqDateStr}</strong><br>AI Result: <strong style="color:var(--warning);">${app.prediction}</strong></p>
+          </div>
+          <div style="display:flex; gap:10px; align-items:center;">
+            <span style="font-size:11px; font-weight:bold; padding:4px 8px; border-radius:4px; background:var(--panel); border:1px solid var(--border); text-transform:uppercase; color:${app.status === 'accepted' ? 'var(--success)' : (app.status === 'declined' ? 'var(--error)' : 'var(--warning)')};">${app.status}</span>
+            ${app.status === 'pending' ? `
+              <button onclick="updateAppointment('${app.id}', 'accepted')" style="background:var(--success); color:#000; border:none; padding:6px 12px; border-radius:4px; cursor:pointer; font-weight:bold; font-size:12px;">Accept</button>
+              <button onclick="updateAppointment('${app.id}', 'declined')" style="background:var(--error); color:#fff; border:none; padding:6px 12px; border-radius:4px; cursor:pointer; font-weight:bold; font-size:12px;">Decline</button>
+            ` : ''}
+          </div>
+        </div>
+      `;
+    });
+  } else {
+    // Patient View
+    list.innerHTML = '<p style="color:var(--text-secondary);">Loading your appointments...</p>';
+    const { data, error } = await supabaseClient.from('appointments').select('*, doctors_profiles(full_name)').eq('patient_id', currentUser.id).order('created_at', { ascending: false });
+    if (error || !data || data.length === 0) {
+      list.innerHTML = '<p style="color:var(--text-secondary);">You have no appointment requests.</p>';
+      return;
+    }
+    list.innerHTML = '';
+    data.forEach(app => {
+      let reqDateStr = app.appointment_date + ' at ' + app.appointment_time;
+      let docName = app.doctors_profiles ? app.doctors_profiles.full_name : 'A Specialist';
+      list.innerHTML += `
+        <div style="background:var(--panel-2); padding:15px; border-radius:8px; border:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+          <div>
+            <h4 style="margin:0 0 5px 0; color:var(--text-primary); font-size:14px;">Dr. ${docName}</h4>
+            <p style="margin:0; font-size:12px; color:var(--text-secondary);">Requested for: <strong style="color:#fff;">${reqDateStr}</strong></p>
+          </div>
+          <div style="display:flex; gap:10px; align-items:center;">
+            <span style="font-size:11px; font-weight:bold; padding:6px 10px; border-radius:4px; background:var(--panel); border:1px solid var(--border); text-transform:uppercase; color:${app.status === 'accepted' ? 'var(--success)' : (app.status === 'declined' ? 'var(--error)' : 'var(--warning)')};">${app.status}</span>
+          </div>
+        </div>
+      `;
+    });
   }
-  list.innerHTML = '';
-  data.forEach(app => {
-    let reqDateStr = app.appointment_date + ' at ' + app.appointment_time;
-    list.innerHTML += `
-      <div style="background:var(--panel-2); padding:15px; border-radius:8px; border:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
-        <div>
-          <h4 style="margin:0 0 5px 0; color:var(--text-primary); font-size:14px;">Patient: ${app.patient_email}</h4>
-          <p style="margin:0; font-size:12px; color:var(--text-secondary);">Requested for: <strong style="color:#fff;">${reqDateStr}</strong><br>AI Result: <strong style="color:var(--warning);">${app.prediction}</strong></p>
-        </div>
-        <div style="display:flex; gap:10px; align-items:center;">
-          <span style="font-size:11px; font-weight:bold; padding:4px 8px; border-radius:4px; background:var(--panel); border:1px solid var(--border); text-transform:uppercase;">${app.status}</span>
-          ${app.status === 'pending' ? `
-            <button onclick="updateAppointment('${app.id}', 'accepted')" style="background:rgba(74,222,128,0.1); color:#4ade80; border:1px solid #4ade80; padding:6px 12px; border-radius:4px; cursor:pointer; font-weight:bold; font-size:12px;">Accept</button>
-            <button onclick="updateAppointment('${app.id}', 'declined')" style="background:rgba(255,51,102,0.1); color:#ff3366; border:1px solid #ff3366; padding:6px 12px; border-radius:4px; cursor:pointer; font-weight:bold; font-size:12px;">Decline</button>
-          ` : ''}
-        </div>
-      </div>
-    `;
-  });
 }
 
 async function updateAppointment(id, newStatus) {
