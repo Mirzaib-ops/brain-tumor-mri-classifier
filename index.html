@@ -58,6 +58,21 @@
     0%,100%{opacity:1;box-shadow:0 0 6px currentColor;}
     50%{opacity:0.5;box-shadow:0 0 2px currentColor;}
   }
+  
+  /* Auth Forms */
+  .auth-form { display:flex; flex-direction:column; gap:16px; max-width:320px; margin:0 auto; padding:40px 0; }
+  .auth-form input { background:var(--panel-2); border:1px solid var(--border); color:var(--text-primary); padding:14px; border-radius:8px; font-size:14px; outline:none; transition:border-color 0.2s; }
+  .auth-form input:focus { border-color:var(--cyan); }
+  .auth-btn { background:var(--cyan); color:#06110f; border:none; padding:14px; border-radius:8px; font-weight:700; cursor:pointer; font-size:14px; transition:transform 0.2s; }
+  .auth-btn:hover { transform:translateY(-2px); box-shadow:0 4px 15px rgba(62,231,224,0.3); }
+  .auth-toggle { background:none; border:none; color:var(--text-secondary); font-size:12px; cursor:pointer; text-decoration:underline; margin-top:8px; }
+  .auth-toggle:hover { color:var(--text-primary); }
+  .auth-error { color:var(--error); font-size:12px; background:rgba(255,51,102,0.1); padding:10px; border-radius:6px; border:1px solid rgba(255,51,102,0.3); display:none; }
+  
+  .user-profile { display:flex; align-items:center; gap:12px; font-size:13px; color:var(--text-secondary); }
+  .logout-btn { background:transparent; border:1px solid var(--border); color:var(--text-secondary); padding:6px 12px; border-radius:6px; cursor:pointer; font-size:12px; transition:0.2s; }
+  .logout-btn:hover { background:var(--error); color:#fff; border-color:var(--error); }
+
   .grid{
     display:grid;
     grid-template-columns:1fr 1.4fr 1fr;
@@ -319,15 +334,47 @@
     </div>
   </div>
   
-  <div class="nav-tabs">
+  <div id="navTabsContainer" class="nav-tabs" style="display:none;">
     <button class="nav-btn active" id="tabScanner">Scanner</button>
     <button class="nav-btn" id="tabHistory">Patient History</button>
   </div>
 
-  <div class="status" id="statusBadge"><span class="dot"></span> <span id="statusText">INITIALIZING ENGINE...</span></div>
+  <div style="display:flex; align-items:center; gap:16px;">
+    <div class="status" id="statusBadge"><span class="dot"></span> <span id="statusText">INITIALIZING ENGINE...</span></div>
+    <div class="user-profile" id="userProfile" style="display:none;">
+      <span id="userEmailDisplay"></span>
+      <button class="logout-btn" id="btnLogout">Log Out</button>
+    </div>
+  </div>
 </div>
 
-<div id="viewScanner" class="grid">
+<!-- Authentication View -->
+<div id="viewAuth" class="panel" style="max-width:500px; margin:40px auto; text-align:center;">
+  <div class="panel-title" style="justify-content:center; margin-bottom:8px;"><span class="bar"></span> Doctor Portal Access</div>
+  <p style="color:var(--text-secondary); font-size:13px; margin-bottom:10px;">Please authenticate to access your isolated clinical dashboard.</p>
+  
+  <div class="auth-error" id="authError"></div>
+
+  <!-- Login Form -->
+  <form id="loginForm" class="auth-form" onsubmit="event.preventDefault(); handleAuth('login');">
+    <input type="email" id="loginEmail" placeholder="Doctor Email Address" required>
+    <input type="password" id="loginPassword" placeholder="Password" required>
+    <button type="submit" class="auth-btn" id="loginBtn">Secure Log In</button>
+    <button type="button" class="auth-toggle" onclick="toggleAuth('signup')">New Doctor? Register Clinical Account</button>
+  </form>
+
+  <!-- Signup Form -->
+  <form id="signupForm" class="auth-form" style="display:none;" onsubmit="event.preventDefault(); handleAuth('signup');">
+    <input type="email" id="signupEmail" placeholder="Doctor Email Address" required>
+    <input type="password" id="signupPassword" placeholder="Create Password" minlength="6" required>
+    <button type="submit" class="auth-btn" id="signupBtn">Register Account</button>
+    <button type="button" class="auth-toggle" onclick="toggleAuth('login')">Already registered? Log In here</button>
+  </form>
+</div>
+
+<!-- Protected App Container -->
+<div id="appContainer" style="display:none;">
+  <div id="viewScanner" class="grid">
 
   <div class="panel">
     <div class="panel-title"><span class="bar"></span> Scan Metadata</div>
@@ -456,6 +503,7 @@
     </table>
   </div>
 </div>
+</div> <!-- End App Container -->
 
 <div class="footer-note">NeuroScan Pro Architecture powered by TensorFlow.js (Inference runs entirely in-browser)</div>
 
@@ -466,10 +514,81 @@ const supabaseKey = 'sb_publishable_elWZd9tvOEpbexUmVagnVA_2cTd8jsb';
 const supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
 
 // State & Classes
+let currentUser = null;
 const state = { 
   loadedFile: false, model: null, isSimulation: false,
   filters: { contrast: false, invert: false }, heatmap: false 
 };
+
+// Authentication Logic
+const viewAuth = document.getElementById('viewAuth');
+const appContainer = document.getElementById('appContainer');
+const navTabsContainer = document.getElementById('navTabsContainer');
+const userProfile = document.getElementById('userProfile');
+const userEmailDisplay = document.getElementById('userEmailDisplay');
+const authError = document.getElementById('authError');
+
+supabaseClient.auth.onAuthStateChange((event, session) => {
+  if (session) {
+    currentUser = session.user;
+    viewAuth.style.display = 'none';
+    appContainer.style.display = 'block';
+    navTabsContainer.style.display = 'flex';
+    userProfile.style.display = 'flex';
+    userEmailDisplay.textContent = 'Dr. ' + currentUser.email.split('@')[0];
+    if (document.getElementById('tabHistory').classList.contains('active')) loadHistory();
+  } else {
+    currentUser = null;
+    viewAuth.style.display = 'block';
+    appContainer.style.display = 'none';
+    navTabsContainer.style.display = 'none';
+    userProfile.style.display = 'none';
+  }
+});
+
+function toggleAuth(type) {
+  authError.style.display = 'none';
+  document.getElementById('loginForm').style.display = type === 'login' ? 'flex' : 'none';
+  document.getElementById('signupForm').style.display = type === 'signup' ? 'flex' : 'none';
+}
+
+async function handleAuth(type) {
+  authError.style.display = 'none';
+  const btn = document.getElementById(type + 'Btn');
+  const email = document.getElementById(type + 'Email').value;
+  const password = document.getElementById(type + 'Password').value;
+  
+  btn.textContent = 'Processing...';
+  let error = null;
+  
+  if (type === 'login') {
+    const res = await supabaseClient.auth.signInWithPassword({ email, password });
+    error = res.error;
+  } else {
+    const res = await supabaseClient.auth.signUp({ email, password });
+    error = res.error;
+    if (!error && !res.data.session) {
+      authError.textContent = 'Registration successful! Check your email to verify.';
+      authError.style.display = 'block';
+      authError.style.color = 'var(--success)';
+      authError.style.backgroundColor = 'rgba(74,222,128,0.1)';
+      authError.style.borderColor = 'rgba(74,222,128,0.3)';
+    }
+  }
+  
+  if (error) {
+    authError.textContent = error.message;
+    authError.style.display = 'block';
+    authError.style.color = 'var(--error)';
+    authError.style.backgroundColor = 'rgba(255,51,102,0.1)';
+    authError.style.borderColor = 'rgba(255,51,102,0.3)';
+  }
+  btn.textContent = type === 'login' ? 'Secure Log In' : 'Register Account';
+}
+
+document.getElementById('btnLogout').addEventListener('click', () => {
+  supabaseClient.auth.signOut();
+});
 
 const CLASS_META = {
   glioma:     { name: 'Glioma Tumor', color: '#ff3366', severity: 'High Priority' },
@@ -531,6 +650,7 @@ tabHistory.addEventListener('click', () => {
 });
 
 async function loadHistory() {
+  if(!currentUser) return;
   document.getElementById('historyLoading').style.display = 'flex';
   document.getElementById('historyEmpty').style.display = 'none';
   document.getElementById('historyTableContainer').style.display = 'none';
@@ -735,25 +855,28 @@ function renderResults(probs) {
   if(state.heatmap) ui.heatmapOverlay.classList.add('show');
   
   // Sync to Supabase
-  const syncEl = document.getElementById('dbSyncStatus');
-  syncEl.innerHTML = 'SYNCING...';
-  syncEl.style.color = 'inherit';
-  supabaseClient.from('scans').insert([{
-    patient_id: ui.metaPatient.textContent,
-    scan_date: ui.metaDate.textContent,
-    modality: ui.metaMod.textContent,
-    prediction: meta.name,
-    confidence: top.p.toFixed(2) + '%'
-  }]).then(({ error }) => {
-    if(error) {
-      console.error('Supabase Sync Error:', error);
-      syncEl.innerHTML = 'SYNC FAILED ✕';
-      syncEl.style.color = 'var(--error)';
-    } else {
-      syncEl.innerHTML = 'CLOUD SYNCED ✓';
-      syncEl.style.color = 'var(--success)';
-    }
-  });
+  if (currentUser) {
+    const syncEl = document.getElementById('dbSyncStatus');
+    syncEl.innerHTML = 'SYNCING...';
+    syncEl.style.color = 'inherit';
+    supabaseClient.from('scans').insert([{
+      patient_id: ui.metaPatient.textContent,
+      scan_date: ui.metaDate.textContent,
+      modality: ui.metaMod.textContent,
+      prediction: meta.name,
+      confidence: top.p.toFixed(2) + '%',
+      doctor_id: currentUser.id
+    }]).then(({ error }) => {
+      if(error) {
+        console.error('Supabase Sync Error:', error);
+        syncEl.innerHTML = 'SYNC FAILED ✕';
+        syncEl.style.color = 'var(--error)';
+      } else {
+        syncEl.innerHTML = 'CLOUD SYNCED ✓';
+        syncEl.style.color = 'var(--success)';
+      }
+    });
+  }
 }
 
 function downloadReport(){
