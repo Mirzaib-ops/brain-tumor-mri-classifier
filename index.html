@@ -1084,7 +1084,7 @@ async function loadAppointments() {
             <div style="display:flex; flex-direction:column; gap:8px;">
               <div style="display:flex; gap:10px;">
                 <input type="date" id="date_${app.id}" value="${app.appointment_date}" style="flex:1; padding:12px; background:var(--cyan-dim); border:2px solid var(--cyan); color:var(--text-primary); border-radius:6px; font-size:15px; font-weight:bold; cursor:pointer;">
-                <input type="time" id="time_${app.id}" value="${app.appointment_time}" style="flex:1; padding:12px; background:var(--cyan-dim); border:2px solid var(--cyan); color:var(--text-primary); border-radius:6px; font-size:15px; font-weight:bold; cursor:pointer;">
+                <input type="text" id="time_${app.id}" value="${app.appointment_time}" style="flex:1; padding:12px; background:var(--cyan-dim); border:2px solid var(--cyan); color:var(--text-primary); border-radius:6px; font-size:15px; font-weight:bold; cursor:text;" placeholder="e.g. 10:00 AM">
               </div>
               <textarea id="reply_${app.id}" style="width:100%; height:40px; padding:8px; background:var(--panel); border:1px solid var(--border); color:var(--text-primary); border-radius:4px; outline:none; resize:none; font-size:12px;" placeholder="Write a reply message to the patient..."></textarea>
               <div style="display:flex; gap:10px; justify-content:flex-end;">
@@ -1097,7 +1097,7 @@ async function loadAppointments() {
             <div style="display:flex; flex-direction:column; gap:8px;">
               <div style="display:flex; gap:10px;">
                 <input type="date" id="date_${app.id}" value="${app.appointment_date}" style="flex:1; padding:12px; background:var(--cyan-dim); border:2px solid var(--cyan); color:var(--text-primary); border-radius:6px; font-size:15px; font-weight:bold; cursor:pointer;">
-                <input type="time" id="time_${app.id}" value="${app.appointment_time}" style="flex:1; padding:12px; background:var(--cyan-dim); border:2px solid var(--cyan); color:var(--text-primary); border-radius:6px; font-size:15px; font-weight:bold; cursor:pointer;">
+                <input type="text" id="time_${app.id}" value="${app.appointment_time}" style="flex:1; padding:12px; background:var(--cyan-dim); border:2px solid var(--cyan); color:var(--text-primary); border-radius:6px; font-size:15px; font-weight:bold; cursor:text;" placeholder="e.g. 10:00 AM">
               </div>
               <div style="display:flex; gap:10px; align-items:center;">
                 <textarea id="reply_${app.id}" style="flex:1; height:30px; padding:6px; background:var(--panel); border:1px solid var(--border); color:var(--text-primary); border-radius:4px; outline:none; resize:none; font-size:11px;" placeholder="Update your reply or suggest a new time..."></textarea>
