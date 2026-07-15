@@ -603,6 +603,36 @@ const supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
 
 // State & Classes
 let currentUser = null;
+let notificationInterval = null;
+
+async function checkNotifications() {
+  if (!currentUser) return;
+  let role = currentUser.user_metadata?.role;
+  if (!role && (currentUser.email.includes('demo.') || currentUser.email.includes('doctor'))) role = 'doctor';
+  if (!role) role = 'patient';
+
+  const tab = document.getElementById('tabAppointments');
+  if (!tab || tab.style.display === 'none') return;
+  
+  if (role === 'doctor') {
+    const { data } = await supabaseClient.from('appointments').select('id').eq('doctor_id', currentUser.id).eq('status', 'pending');
+    if (data && data.length > 0) {
+      tab.innerHTML = `Incoming Appointments <span style="background:var(--error); color:#fff; border-radius:50%; padding:2px 6px; font-size:10px; margin-left:5px; font-weight:bold;">${data.length}</span>`;
+    } else {
+      tab.innerHTML = `Incoming Appointments`;
+    }
+  } else {
+    const { data } = await supabaseClient.from('appointments').select('id').eq('patient_id', currentUser.id).neq('status', 'pending');
+    const count = data ? data.length : 0;
+    const lastCount = parseInt(localStorage.getItem('notif_count_' + currentUser.id) || '0');
+    
+    if (count > lastCount) {
+      tab.innerHTML = `My Appointments <span style="background:var(--error); border-radius:50%; width:8px; height:8px; display:inline-block; margin-left:5px;"></span>`;
+    } else {
+      tab.innerHTML = `My Appointments`;
+    }
+  }
+}
 const state = { 
   loadedFile: false, model: null, isSimulation: false,
   filters: { contrast: false, invert: false }, heatmap: false 
@@ -662,6 +692,9 @@ supabaseClient.auth.onAuthStateChange(async (event, session) => {
       
       document.getElementById('tabScanner').click(); // Default landing page for patients
     }
+    
+    checkNotifications();
+    notificationInterval = setInterval(checkNotifications, 5000);
   } else {
     currentUser = null;
     viewAuth.style.display = 'block';
@@ -793,9 +826,21 @@ init();
       btn.classList.add('active');
       document.getElementById(tabId.replace('tab', 'view')).style.display = 'block';
       
-      if(tabId === 'tabHistory') loadHistory();
-      if(tabId === 'tabDirectory') loadDirectory();
-      if(tabId === 'tabAppointments') loadAppointments();
+      if (tabId === 'tabHistory') loadHistory();
+      if (tabId === 'tabDirectory') loadDirectory();
+      if (tabId === 'tabAppointments') {
+        if (currentUser) {
+           let role = currentUser.user_metadata?.role;
+           if (!role && (currentUser.email.includes('demo.') || currentUser.email.includes('doctor'))) role = 'doctor';
+           if (role !== 'doctor') {
+             supabaseClient.from('appointments').select('id').eq('patient_id', currentUser.id).neq('status', 'pending').then(({data}) => {
+               if (data) localStorage.setItem('notif_count_' + currentUser.id, data.length);
+               checkNotifications();
+             });
+           }
+        }
+        loadAppointments();
+      }
     });
   }
 });
@@ -1019,7 +1064,7 @@ async function loadAppointments() {
           <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:10px;">
             <div>
               <h4 style="margin:0 0 5px 0; color:var(--text-primary); font-size:14px;">Dr. ${docName}</h4>
-              <p style="margin:0; font-size:12px; color:var(--text-secondary);">Requested for: <strong style="color:#fff;">${reqDateStr}</strong></p>
+              <p style="margin:0; font-size:12px; color:var(--text-secondary);">${app.status === 'accepted' ? '<span style="color:var(--success); font-weight:bold;">Meeting Scheduled For:</span>' : 'Requested for:'} <strong style="color:#fff;">${reqDateStr}</strong></p>
             </div>
             <div style="display:flex; gap:10px; align-items:center;">
               <span style="font-size:11px; font-weight:bold; padding:6px 10px; border-radius:4px; background:var(--panel); border:1px solid var(--border); text-transform:uppercase; color:${app.status === 'accepted' ? 'var(--success)' : (app.status === 'declined' ? 'var(--error)' : 'var(--warning)')};">${app.status}</span>
