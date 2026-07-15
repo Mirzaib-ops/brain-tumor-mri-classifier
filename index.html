@@ -341,7 +341,9 @@
   
   <div id="navTabsContainer" class="nav-tabs" style="display:none;">
     <button class="nav-btn active" id="tabScanner">Scanner</button>
-    <button class="nav-btn" id="tabHistory">Patient History</button>
+    <button class="nav-btn" id="tabHistory" style="display:none;">Patient History</button>
+    <button class="nav-btn" id="tabDirectory" style="display:none;">Find a Specialist</button>
+    <button class="nav-btn" id="tabAppointments" style="display:none;">Incoming Appointments</button>
   </div>
 
   <div style="display:flex; align-items:center; gap:16px;">
@@ -521,6 +523,21 @@
     </table>
   </div>
 </div>
+
+<div id="viewDirectory" style="display:none;" class="panel">
+  <div class="panel-title"><span class="bar"></span> Neurologist Directory</div>
+  <p style="color:var(--text-secondary); margin-bottom:15px; font-size:13px;">Select a specialist below to send your recent AI scan and request a consultation.</p>
+  <div id="directoryGrid" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(250px, 1fr)); gap:15px;">
+    <!-- Doctor Cards -->
+  </div>
+</div>
+
+<div id="viewAppointments" style="display:none;" class="panel">
+  <div class="panel-title"><span class="bar"></span> Incoming Appointments</div>
+  <div id="appointmentsList" style="display:flex; flex-direction:column; gap:10px; margin-top:10px;">
+    <!-- Appointment Cards -->
+  </div>
+</div>
 </div> <!-- End App Container -->
 
 <div class="footer-note">NeuroScan Pro Architecture powered by TensorFlow.js (Inference runs entirely in-browser)</div>
@@ -560,13 +577,17 @@ supabaseClient.auth.onAuthStateChange((event, session) => {
     if (role === 'doctor') {
       userEmailDisplay.textContent = 'Dr. ' + currentUser.email.split('@')[0];
       document.getElementById('tabHistory').style.display = 'block';
+      document.getElementById('tabAppointments').style.display = 'block';
+      document.getElementById('tabDirectory').style.display = 'none';
+      if (document.getElementById('tabAppointments').classList.contains('active')) loadAppointments();
+      if (document.getElementById('tabHistory').classList.contains('active')) loadHistory();
     } else {
       userEmailDisplay.textContent = 'Patient: ' + currentUser.email.split('@')[0];
-      document.getElementById('tabHistory').style.display = 'none'; // Patients don't see the global history table
+      document.getElementById('tabHistory').style.display = 'none'; // Patients don't see global history
+      document.getElementById('tabAppointments').style.display = 'none';
+      document.getElementById('tabDirectory').style.display = 'block';
       document.getElementById('tabScanner').click(); // Force them to scanner view
     }
-
-    if (document.getElementById('tabHistory').classList.contains('active')) loadHistory();
   } else {
     currentUser = null;
     viewAuth.style.display = 'block';
@@ -602,12 +623,23 @@ async function handleAuth(type) {
       options: { data: { role: selectedRole } }
     });
     error = res.error;
-    if (!error && !res.data.session) {
-      authError.textContent = 'Registration successful! Check your email to verify.';
-      authError.style.display = 'block';
-      authError.style.color = 'var(--success)';
-      authError.style.backgroundColor = 'rgba(74,222,128,0.1)';
-      authError.style.borderColor = 'rgba(74,222,128,0.3)';
+    if (!error && res.data.user) {
+      if (selectedRole === 'doctor') {
+         await supabaseClient.from('doctors_profiles').insert([{
+           id: res.data.user.id,
+           full_name: "Dr. " + email.split('@')[0],
+           specialty: "Neurologist",
+           hospital: "NeuroScan Clinical Network",
+           contact_email: email
+         }]);
+      }
+      if (!res.data.session) {
+        authError.textContent = 'Registration successful! Check your email to verify.';
+        authError.style.display = 'block';
+        authError.style.color = 'var(--success)';
+        authError.style.backgroundColor = 'rgba(74,222,128,0.1)';
+        authError.style.borderColor = 'rgba(74,222,128,0.3)';
+      }
     }
   }
   
@@ -673,21 +705,25 @@ async function init() {
 }
 init();
 
-// Navigation Tabs
-const tabScanner = document.getElementById('tabScanner');
-const tabHistory = document.getElementById('tabHistory');
-const viewScanner = document.getElementById('viewScanner');
-const viewHistory = document.getElementById('viewHistory');
-
-tabScanner.addEventListener('click', () => {
-  tabScanner.classList.add('active'); tabHistory.classList.remove('active');
-  viewScanner.style.display = ''; viewHistory.style.display = 'none';
-});
-
-tabHistory.addEventListener('click', () => {
-  tabHistory.classList.add('active'); tabScanner.classList.remove('active');
-  viewScanner.style.display = 'none'; viewHistory.style.display = 'block';
-  loadHistory();
+// Navigation Tabs logic
+['tabScanner', 'tabHistory', 'tabDirectory', 'tabAppointments'].forEach(tabId => {
+  const btn = document.getElementById(tabId);
+  if(btn) {
+    btn.addEventListener('click', () => {
+      ['tabScanner', 'tabHistory', 'tabDirectory', 'tabAppointments'].forEach(id => {
+         const b = document.getElementById(id);
+         if(b) b.classList.remove('active');
+         const v = document.getElementById(id.replace('tab', 'view'));
+         if(v) v.style.display = 'none';
+      });
+      btn.classList.add('active');
+      document.getElementById(tabId.replace('tab', 'view')).style.display = 'block';
+      
+      if(tabId === 'tabHistory') loadHistory();
+      if(tabId === 'tabDirectory') loadDirectory();
+      if(tabId === 'tabAppointments') loadAppointments();
+    });
+  }
 });
 
 async function loadHistory() {
@@ -726,6 +762,76 @@ async function loadHistory() {
       `;
     });
   }
+}
+
+async function loadDirectory() {
+  const grid = document.getElementById('directoryGrid');
+  grid.innerHTML = '<p style="color:var(--text-secondary);">Loading specialists from clinical network...</p>';
+  const { data, error } = await supabaseClient.from('doctors_profiles').select('*');
+  if (error || !data || data.length === 0) {
+    grid.innerHTML = '<p style="color:var(--error);">No specialists found in the network.</p>';
+    return;
+  }
+  grid.innerHTML = '';
+  data.forEach(doc => {
+    grid.innerHTML += `
+      <div style="background:var(--panel-2); padding:15px; border-radius:8px; border:1px solid var(--border);">
+        <h3 style="margin:0 0 5px 0; color:var(--cyan); font-size:16px;">${doc.full_name}</h3>
+        <p style="margin:0 0 10px 0; font-size:12px; color:var(--text-secondary); line-height:1.4;">${doc.specialty}<br>${doc.hospital}</p>
+        <button onclick="requestAppointment('${doc.id}')" style="background:var(--cyan-dim); color:var(--cyan); border:1px solid var(--cyan); padding:8px; border-radius:4px; font-weight:bold; cursor:pointer; width:100%; font-size:12px; transition:0.2s;">Send Scan & Request</button>
+      </div>
+    `;
+  });
+}
+
+async function requestAppointment(doctorId) {
+  const predEl = document.getElementById('reportPrediction');
+  let predictionStr = predEl && predEl.textContent !== 'AWAITING SCAN' ? predEl.textContent : 'No recent scan provided';
+  
+  const { error } = await supabaseClient.from('appointments').insert([{
+    patient_id: currentUser.id,
+    patient_email: currentUser.email,
+    doctor_id: doctorId,
+    prediction: predictionStr,
+    status: 'pending'
+  }]);
+  
+  if(error) alert('Error sending request: ' + error.message);
+  else alert('Appointment request sent to the doctor successfully!');
+}
+
+async function loadAppointments() {
+  const list = document.getElementById('appointmentsList');
+  list.innerHTML = '<p style="color:var(--text-secondary);">Loading appointments...</p>';
+  const { data, error } = await supabaseClient.from('appointments').select('*').order('created_at', { ascending: false });
+  if (error || !data || data.length === 0) {
+    list.innerHTML = '<p style="color:var(--text-secondary);">No incoming appointment requests.</p>';
+    return;
+  }
+  list.innerHTML = '';
+  data.forEach(app => {
+    let dateStr = new Date(app.created_at).toLocaleDateString('en-US', {month:'short', day:'numeric'});
+    list.innerHTML += `
+      <div style="background:var(--panel-2); padding:15px; border-radius:8px; border:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+        <div>
+          <h4 style="margin:0 0 5px 0; color:var(--text-primary); font-size:14px;">Patient: ${app.patient_email}</h4>
+          <p style="margin:0; font-size:12px; color:var(--text-secondary);">Requested on ${dateStr} • AI Result: <strong style="color:var(--warning);">${app.prediction}</strong></p>
+        </div>
+        <div style="display:flex; gap:10px; align-items:center;">
+          <span style="font-size:11px; font-weight:bold; padding:4px 8px; border-radius:4px; background:var(--panel); border:1px solid var(--border); text-transform:uppercase;">${app.status}</span>
+          ${app.status === 'pending' ? `
+            <button onclick="updateAppointment('${app.id}', 'accepted')" style="background:rgba(74,222,128,0.1); color:#4ade80; border:1px solid #4ade80; padding:6px 12px; border-radius:4px; cursor:pointer; font-weight:bold; font-size:12px;">Accept</button>
+            <button onclick="updateAppointment('${app.id}', 'declined')" style="background:rgba(255,51,102,0.1); color:#ff3366; border:1px solid #ff3366; padding:6px 12px; border-radius:4px; cursor:pointer; font-weight:bold; font-size:12px;">Decline</button>
+          ` : ''}
+        </div>
+      </div>
+    `;
+  });
+}
+
+async function updateAppointment(id, newStatus) {
+  await supabaseClient.from('appointments').update({ status: newStatus }).eq('id', id);
+  loadAppointments();
 }
 
 // File Handlers
@@ -906,7 +1012,7 @@ function renderResults(probs) {
       modality: ui.metaMod.textContent,
       prediction: meta.name,
       confidence: top.p.toFixed(2) + '%',
-      doctor_id: currentUser.id
+      owner_id: currentUser.id
     }]).then(({ error }) => {
       if(error) {
         console.error('Supabase Sync Error:', error);
