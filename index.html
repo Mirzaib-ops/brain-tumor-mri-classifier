@@ -709,8 +709,8 @@ function handleFile(file) {
     state.loadedFile = true;
     
     // Metadata
-    const hash = Array.from(file.name).reduce((s,c)=>Math.imul(31,s)+c.charCodeAt(0)|0,0);
-    ui.metaPatient.textContent = "PT-" + Math.abs(hash).toString().substring(0,8);
+    const randomId = Math.floor(10000000 + Math.random() * 90000000);
+    ui.metaPatient.textContent = "PT-" + randomId;
     ui.metaDate.textContent = new Date(file.lastModified).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
     ui.metaMod.textContent = "MRI (T1/T2)";
     ui.metaSize.textContent = (file.size / 1024 / 1024).toFixed(2) + " MB";
