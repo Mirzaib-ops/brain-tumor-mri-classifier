@@ -535,13 +535,13 @@ ui.execBtn.addEventListener('click', async () => {
   try {
     if (state.isSimulation) {
       probs = await simulatePrediction();
-      await new Promise(res => setTimeout(res, 2200)); // Ensure animation time
+      await new Promise(res => setTimeout(res, 500)); // Ensure animation time
     } else {
       const tensor = tf.tidy(() => tf.browser.fromPixels(ui.previewImg, 3).resizeBilinear([150, 150]).toFloat().div(255.0).expandDims(0));
       const output = state.model.predict(tensor);
       probs = Array.from(output.dataSync());
       tf.dispose([tensor, output]);
-      await new Promise(res => setTimeout(res, 2200));
+      await new Promise(res => setTimeout(res, 500));
     }
   } catch (err) { alert("Analysis error: " + err.message); }
   
