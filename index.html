@@ -942,6 +942,7 @@ async function loadAppointments() {
             <p style="margin:0; font-size:12px; color:var(--text-secondary);">Requested for: <strong style="color:#fff;">${reqDateStr}</strong><br>AI Result: <strong style="color:var(--warning);">${app.prediction}</strong></p>
           </div>
           <div style="display:flex; gap:10px; align-items:center;">
+            <button onclick="verifyPatientScan('${app.patient_email}', '${app.prediction}')" style="background:var(--cyan-dim); color:var(--cyan); border:1px solid var(--cyan); padding:6px 12px; border-radius:4px; cursor:pointer; font-weight:bold; font-size:12px;">Verify Scan</button>
             <span style="font-size:11px; font-weight:bold; padding:4px 8px; border-radius:4px; background:var(--panel); border:1px solid var(--border); text-transform:uppercase; color:${app.status === 'accepted' ? 'var(--success)' : (app.status === 'declined' ? 'var(--error)' : 'var(--warning)')};">${app.status}</span>
             ${app.status === 'pending' ? `
               <button onclick="updateAppointment('${app.id}', 'accepted')" style="background:var(--success); color:#000; border:none; padding:6px 12px; border-radius:4px; cursor:pointer; font-weight:bold; font-size:12px;">Accept</button>
@@ -976,6 +977,23 @@ async function loadAppointments() {
       `;
     });
   }
+}
+
+function verifyPatientScan(email, prediction) {
+  document.getElementById('tabScanner').click();
+  ui.metaPatient.textContent = email;
+  ui.metaDate.textContent = 'Awaiting Upload...';
+  ui.metaMod.textContent = '—';
+  ui.metaRes.textContent = '—';
+  ui.metaSize.textContent = '—';
+  document.querySelectorAll('#metaDate,#metaModality,#metaRes,#metaSize').forEach(el=>el.classList.add('dim'));
+  
+  ui.reportEmpty.innerHTML = `
+    <div style="color:var(--cyan); margin-bottom:15px;"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg></div>
+    <div style="color:var(--text-primary); font-weight:bold; margin-bottom:5px;">Verifying Patient Scan</div>
+    <div style="font-size:13px;">Patient: <strong style="color:#fff;">${email}</strong><br>Suspected: <strong style="color:var(--warning);">${prediction}</strong></div>
+    <div style="margin-top:15px; font-size:12px;">Please upload the MRI file to begin clinical verification.</div>
+  `;
 }
 
 async function updateAppointment(id, newStatus) {
