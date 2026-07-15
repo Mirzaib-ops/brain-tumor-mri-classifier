@@ -612,7 +612,13 @@ async function handleAuth(type) {
   }
   
   if (error) {
-    authError.textContent = error.message;
+    console.error('Auth Error Payload:', error);
+    let msg = error.message;
+    if (!msg || typeof msg === 'object') {
+      msg = JSON.stringify(error);
+      if (msg === '{}') msg = "Rate limit exceeded or network error. Please check console.";
+    }
+    authError.textContent = msg;
     authError.style.display = 'block';
     authError.style.color = 'var(--error)';
     authError.style.backgroundColor = 'rgba(255,51,102,0.1)';
