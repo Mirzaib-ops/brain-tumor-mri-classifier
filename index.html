@@ -1145,7 +1145,11 @@ async function loadAppointments() {
             if (pMsg.includes('||IMG||')) {
               let pts = pMsg.split('||IMG||');
               pMsg = pts[0];
-              pImg = pts[1];
+              let imgAndUpdates = pts[1].split('<br><br>');
+              pImg = imgAndUpdates[0];
+              if (imgAndUpdates.length > 1) {
+                pMsg += '<br><br>' + imgAndUpdates.slice(1).join('<br><br>');
+              }
             }
             return `
               ${pMsg ? `<div style="background:var(--panel); padding:10px; border-radius:6px; font-size:12px; color:var(--text-secondary); border-left:3px solid var(--cyan); margin-bottom:5px;"><strong style="color:var(--text-primary);">Patient Notes:</strong><br>${pMsg}</div>` : ''}
@@ -1226,7 +1230,11 @@ async function loadAppointments() {
             if (pMsg.includes('||IMG||')) {
               let pts = pMsg.split('||IMG||');
               pMsg = pts[0];
-              pImg = pts[1];
+              let imgAndUpdates = pts[1].split('<br><br>');
+              pImg = imgAndUpdates[0];
+              if (imgAndUpdates.length > 1) {
+                pMsg += '<br><br>' + imgAndUpdates.slice(1).join('<br><br>');
+              }
             }
             return `
               ${pMsg ? `<div style="background:var(--panel); padding:10px; border-radius:6px; font-size:12px; color:var(--text-secondary); border-left:3px solid var(--cyan); margin-bottom:5px;"><strong style="color:var(--text-primary);">Patient Notes:</strong><br>${pMsg}</div>` : ''}
