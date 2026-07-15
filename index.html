@@ -473,6 +473,13 @@
       
       <div class="bars-container" id="barsContainer"></div>
       
+      <!-- Phase 1: Explainable AI Guidance -->
+      <div id="aiGuidanceSection" style="display:none; margin-top:20px; padding:15px; background:var(--panel-2); border-radius:8px; border:1px solid var(--border);">
+        <h4 style="margin:0 0 8px 0; color:var(--cyan); font-size:14px;"><span class="bar"></span> Clinical Guidance</h4>
+        <p id="aiGuidanceText" style="font-size:13px; color:var(--text-secondary); line-height:1.5; margin:0 0 12px 0;"></p>
+        <button id="btnFindSpecialist" style="display:none; background:var(--cyan-dim); color:var(--cyan); border:1px solid var(--cyan); padding:8px 16px; border-radius:4px; font-weight:bold; cursor:pointer; font-size:12px; width:100%; transition:0.2s;">Find a Specialist</button>
+      </div>
+      
       <div style="display:flex; gap:10px; margin-top:16px;">
         <button class="download-btn" id="downloadBtn" onclick="downloadReport()" style="margin-top:0;">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
@@ -1023,6 +1030,31 @@ function renderResults(probs) {
         syncEl.style.color = 'var(--success)';
       }
     });
+  }
+  
+  // Phase 1: Explainable AI
+  const guidanceData = {
+    glioma: "Gliomas are tumors that occur in the brain and spinal cord. Next Steps: Do not panic. It is highly recommended to schedule an MRI with contrast and consult a neurosurgeon or neuro-oncologist immediately for a comprehensive evaluation.",
+    meningioma: "Meningiomas are typically slow-growing tumors that form on membranes that cover the brain and spinal cord just inside the skull. Next Steps: Please consult a neurologist to review your scan and discuss observation or treatment options.",
+    pituitary: "Pituitary tumors are abnormal growths that develop in your pituitary gland. Next Steps: A consultation with an endocrinologist or neurologist is recommended to check hormone levels and discuss management.",
+    notumor: "No tumor was detected in this scan. Healthy Habits: Maintain a balanced diet, stay hydrated, and ensure you get adequate sleep. If you experience chronic headaches or neurological symptoms, please consult a healthcare professional."
+  };
+
+  const guidance = guidanceData[top.key] || "Please consult a healthcare professional for a complete diagnosis.";
+  const guidanceSection = document.getElementById('aiGuidanceSection');
+  const guidanceText = document.getElementById('aiGuidanceText');
+  const btnFindSpecialist = document.getElementById('btnFindSpecialist');
+  
+  if (guidanceSection && guidanceText && btnFindSpecialist) {
+    guidanceText.textContent = guidance;
+    guidanceSection.style.display = 'block';
+    
+    if (top.key !== 'notumor' && currentUser && currentUser.user_metadata?.role === 'patient') {
+      btnFindSpecialist.style.display = 'block';
+      btnFindSpecialist.onclick = () => document.getElementById('tabDirectory').click();
+    } else {
+      btnFindSpecialist.style.display = 'none';
+    }
   }
 }
 
