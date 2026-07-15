@@ -555,10 +555,19 @@ ui.execBtn.addEventListener('click', async () => {
 });
 
 async function simulatePrediction() {
-  const r = Math.random();
+  const ptId = ui.metaPatient.textContent.replace('PT-', '');
+  let seed = parseInt(ptId) || Date.now();
+  
+  const pseudoRandom = () => {
+    let x = Math.sin(seed++) * 10000;
+    return x - Math.floor(x);
+  };
+  
+  const r = pseudoRandom();
   let primary = r < 0.35 ? 0 : r < 0.55 ? 1 : r < 0.8 ? 2 : 3;
-  let probs = [Math.random()*10, Math.random()*10, Math.random()*10, Math.random()*10];
-  probs[primary] += 70 + Math.random()*20;
+  let probs = [pseudoRandom()*10, pseudoRandom()*10, pseudoRandom()*10, pseudoRandom()*10];
+  probs[primary] += 75 + pseudoRandom()*20;
+  
   const sum = probs.reduce((a,b)=>a+b, 0);
   return probs.map(p => p/sum);
 }
