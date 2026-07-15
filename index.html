@@ -259,6 +259,25 @@
   }
   .download-btn:hover{background:var(--cyan-dim);border-color:var(--cyan);}
 
+  @media print {
+    body { background: white !important; color: black !important; padding: 20px !important; }
+    .topbar, .panel.hero, .footer-note, .download-btn { display: none !important; }
+    .grid { display: block !important; }
+    .panel { border: 1px solid #ddd !important; box-shadow: none !important; padding: 20px !important; margin-bottom: 20px !important; page-break-inside: avoid; background: white !important; }
+    .panel-title { color: black !important; font-size: 16px !important; border-bottom: 2px solid #ddd !important; padding-bottom: 8px !important; margin-bottom: 16px !important; }
+    .panel-title .bar { display: none !important; }
+    .meta-label { color: #555 !important; }
+    .meta-value, .meta-value.accent, .meta-value.dim { color: black !important; }
+    .meta-row { border-bottom: 1px solid #eee !important; }
+    .verdict { background: white !important; border: 2px solid #ddd !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .verdict .label { color: #555 !important; }
+    .verdict .value { color: black !important; }
+    .bar-info span { color: black !important; }
+    .bar-conf { color: #333 !important; }
+    .bar-track { background: #eee !important; border: 1px solid #ddd !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .bar-fill { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+
   .footer-note{ text-align:center;margin-top:24px;font-size:12px;color:var(--text-muted); }
 </style>
 </head>
@@ -363,10 +382,16 @@
       
       <div class="bars-container" id="barsContainer"></div>
       
-      <button class="download-btn" id="downloadBtn" onclick="downloadReport()">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-        Download Report
-      </button>
+      <div style="display:flex; gap:10px; margin-top:16px;">
+        <button class="download-btn" id="downloadBtn" onclick="downloadReport()" style="margin-top:0;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+          TXT
+        </button>
+        <button class="download-btn" id="printBtn" onclick="window.print()" style="margin-top:0; background:var(--cyan); color:#06110f; border-color:var(--cyan);">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+          Print PDF
+        </button>
+      </div>
     </div>
   </div>
 
