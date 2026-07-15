@@ -603,6 +603,11 @@
     <label style="font-size:12px; color:var(--text-secondary); display:block; margin-bottom:4px;">Clinical Notes (Symptoms, history, etc.):</label>
     <textarea id="reqNotes" style="width:100%; height:60px; margin-bottom:20px; padding:10px; background:var(--panel-2); border:1px solid var(--border); color:var(--text-primary); border-radius:6px; outline:none; resize:none;" placeholder="Optional details for the doctor..."></textarea>
     
+    <label id="reqAttachScanLabel" style="display:none; align-items:center; gap:8px; font-size:12px; color:var(--text-secondary); margin-bottom:20px; cursor:pointer;">
+      <input type="checkbox" id="reqAttachScan" checked>
+      Attach the MRI scan currently loaded in my Scanner
+    </label>
+
     <div style="display:flex; gap:10px;">
       <button onclick="document.getElementById('appointmentModal').style.display='none'" style="flex:1; padding:10px; background:transparent; border:1px solid var(--border); color:var(--text-secondary); cursor:pointer; border-radius:6px;">Cancel</button>
       <button id="btnConfirmRequest" onclick="confirmAppointmentRequest()" style="flex:1; padding:10px; background:var(--cyan); border:none; color:#000; font-weight:bold; cursor:pointer; border-radius:6px;">Confirm</button>
@@ -994,14 +999,50 @@ function requestAppointment(doctorId) {
   document.getElementById('reqTime').value = '';
   document.getElementById('reqDate').value = new Date().toISOString().split('T')[0];
   document.getElementById('reqNotes').value = '';
+  if (state.loadedFile) {
+    document.getElementById('reqAttachScanLabel').style.display = 'flex';
+  } else {
+    document.getElementById('reqAttachScanLabel').style.display = 'none';
+  }
   document.getElementById('appointmentModal').style.display = 'flex';
+}
+
+window.analyzePatientImage = function(appId) {
+  const imgData = document.getElementById('hidden_img_' + appId).value;
+  const img = new Image();
+  img.onload = () => {
+    state.loadedFile = true;
+    ui.previewImg.src = imgData;
+    ui.previewImg.onload = () => { ui.metaRes.textContent = `${ui.previewImg.naturalWidth} × ${ui.previewImg.naturalHeight}`; };
+    ui.previewImg.classList.add('show');
+    ui.viewerHero.classList.add('has-file');
+    ui.toolbar.style.opacity = '1'; ui.toolbar.style.pointerEvents = 'auto';
+    ui.execBtn.disabled = !state.model;
+    
+    const randomId = Math.floor(10000000 + Math.random() * 90000000);
+    ui.metaPatient.textContent = "PT-" + randomId;
+    ui.metaDate.textContent = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+    ui.metaMod.textContent = "MRI (Imported)";
+    ui.metaSize.textContent = "External";
+    document.querySelectorAll('#metaDate,#metaModality,#metaRes,#metaSize').forEach(el=>el.classList.remove('dim'));
+    
+    document.getElementById('tabScanner').click();
+    setTimeout(() => ui.execBtn.click(), 500);
+  };
+  img.src = imgData;
 }
 
 async function confirmAppointmentRequest() {
   const dateVal = document.getElementById('reqDate').value;
   const timeVal = document.getElementById('reqTime').value;
-  const notesVal = document.getElementById('reqNotes').value;
+  let notesVal = document.getElementById('reqNotes').value;
   if (!dateVal || !timeVal) { alert('Please select a date and time.'); return; }
+  
+  if (state.loadedFile && document.getElementById('reqAttachScan') && document.getElementById('reqAttachScan').checked) {
+    if (ui.previewImg.src && ui.previewImg.src.startsWith('data:image')) {
+      notesVal += '||IMG||' + ui.previewImg.src;
+    }
+  }
   
   const predEl = document.getElementById('vClass');
   let predictionStr = predEl && predEl.textContent !== 'AWAITING SCAN' ? predEl.textContent : 'No recent scan provided';
@@ -1078,7 +1119,31 @@ async function loadAppointments() {
             </div>
           </div>
           
-          ${app.patient_message ? `<div style="background:var(--panel); padding:10px; border-radius:6px; font-size:12px; color:var(--text-secondary); border-left:3px solid var(--cyan);"><strong style="color:var(--text-primary);">Patient Notes:</strong><br>${app.patient_message}</div>` : ''}
+          ${(() => {
+            let pMsg = app.patient_message || '';
+            let pImg = '';
+            if (pMsg.includes('||IMG||')) {
+              let pts = pMsg.split('||IMG||');
+              pMsg = pts[0];
+              pImg = pts[1];
+            }
+            return `
+              ${pMsg ? `<div style="background:var(--panel); padding:10px; border-radius:6px; font-size:12px; color:var(--text-secondary); border-left:3px solid var(--cyan); margin-bottom:5px;"><strong style="color:var(--text-primary);">Patient Notes:</strong><br>${pMsg}</div>` : ''}
+              ${pImg ? `
+                <div style="background:var(--panel-2); border:1px solid var(--border); padding:10px; border-radius:6px; margin-bottom:10px; display:flex; gap:15px; align-items:center;">
+                  <img src="${pImg}" style="width:60px; height:60px; object-fit:cover; border-radius:4px; border:1px solid var(--border);">
+                  <div style="flex:1;">
+                    <strong style="color:var(--text-primary); font-size:13px; display:block; margin-bottom:5px;">Patient's MRI Scan Attached</strong>
+                    <div style="display:flex; gap:10px;">
+                      <a href="${pImg}" download="patient_scan.jpg" style="background:var(--panel); border:1px solid var(--border); color:var(--text-primary); padding:6px 12px; border-radius:4px; text-decoration:none; font-size:11px; cursor:pointer;">Download Image</a>
+                      <button onclick="analyzePatientImage('${app.id}')" style="background:var(--cyan-dim); border:1px solid var(--cyan); color:var(--cyan); padding:6px 12px; border-radius:4px; font-size:11px; cursor:pointer; font-weight:bold;">Analyze in Scanner</button>
+                    </div>
+                  </div>
+                </div>
+                <textarea id="hidden_img_${app.id}" style="display:none;">${pImg}</textarea>
+              ` : ''}
+            `;
+          })()}
           
           ${app.status === 'pending' ? `
             <div style="display:flex; flex-direction:column; gap:8px;">
@@ -1131,7 +1196,29 @@ async function loadAppointments() {
               <span style="font-size:11px; font-weight:bold; padding:6px 10px; border-radius:4px; background:var(--panel); border:1px solid var(--border); text-transform:uppercase; color:${app.status === 'accepted' ? 'var(--success)' : (app.status === 'declined' ? 'var(--error)' : 'var(--warning)')};">${app.status}</span>
             </div>
           </div>
-          ${app.patient_message ? `<div style="background:var(--panel); padding:10px; border-radius:6px; font-size:12px; color:var(--text-secondary); border-left:3px solid var(--cyan); margin-bottom:5px;"><strong style="color:var(--text-primary);">Patient Notes:</strong><br>${app.patient_message}</div>` : ''}
+          ${(() => {
+            let pMsg = app.patient_message || '';
+            let pImg = '';
+            if (pMsg.includes('||IMG||')) {
+              let pts = pMsg.split('||IMG||');
+              pMsg = pts[0];
+              pImg = pts[1];
+            }
+            return `
+              ${pMsg ? `<div style="background:var(--panel); padding:10px; border-radius:6px; font-size:12px; color:var(--text-secondary); border-left:3px solid var(--cyan); margin-bottom:5px;"><strong style="color:var(--text-primary);">Patient Notes:</strong><br>${pMsg}</div>` : ''}
+              ${pImg ? `
+                <div style="background:var(--panel-2); border:1px solid var(--border); padding:10px; border-radius:6px; margin-bottom:10px; display:flex; gap:15px; align-items:center;">
+                  <img src="${pImg}" style="width:60px; height:60px; object-fit:cover; border-radius:4px; border:1px solid var(--border);">
+                  <div style="flex:1;">
+                    <strong style="color:var(--text-primary); font-size:13px; display:block; margin-bottom:5px;">Your MRI Scan Attached</strong>
+                    <div style="display:flex; gap:10px;">
+                      <a href="${pImg}" download="my_scan.jpg" style="background:var(--panel); border:1px solid var(--border); color:var(--text-primary); padding:6px 12px; border-radius:4px; text-decoration:none; font-size:11px; cursor:pointer;">Download Image</a>
+                    </div>
+                  </div>
+                </div>
+              ` : ''}
+            `;
+          })()}
           ${app.doctor_reply ? `<div style="background:var(--panel); padding:10px; border-radius:6px; font-size:12px; color:var(--text-secondary); border-left:3px solid ${app.status === 'accepted' ? 'var(--success)' : 'var(--error)'}; margin-bottom:5px;"><strong style="color:var(--text-primary);">Doctor's Reply:</strong><br>${app.doctor_reply}</div>` : ''}
           
           <div style="display:flex; gap:10px; align-items:center;">
