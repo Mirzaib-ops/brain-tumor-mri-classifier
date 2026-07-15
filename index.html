@@ -781,11 +781,27 @@ async function loadDirectory() {
   }
   grid.innerHTML = '';
   data.forEach(doc => {
+    const avatar = doc.image_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(doc.full_name)}&background=2a9d94&color=fff`;
+    const phone = doc.phone || 'Not provided';
+    const email = doc.contact_email || 'Not provided';
+    
     grid.innerHTML += `
-      <div style="background:var(--panel-2); padding:15px; border-radius:8px; border:1px solid var(--border);">
-        <h3 style="margin:0 0 5px 0; color:var(--cyan); font-size:16px;">${doc.full_name}</h3>
-        <p style="margin:0 0 10px 0; font-size:12px; color:var(--text-secondary); line-height:1.4;">${doc.specialty}<br>${doc.hospital}</p>
-        <button onclick="requestAppointment('${doc.id}')" style="background:var(--cyan-dim); color:var(--cyan); border:1px solid var(--cyan); padding:8px; border-radius:4px; font-weight:bold; cursor:pointer; width:100%; font-size:12px; transition:0.2s;">Send Scan & Request</button>
+      <div style="background:var(--panel-2); padding:15px; border-radius:8px; border:1px solid var(--border); display:flex; flex-direction:column; gap:12px;">
+        <div style="display:flex; gap:12px; align-items:center;">
+          <img src="${avatar}" alt="Doctor Avatar" style="width:50px; height:50px; border-radius:50%; border:2px solid var(--cyan); object-fit:cover;">
+          <div>
+            <h3 style="margin:0 0 4px 0; color:var(--cyan); font-size:15px;">${doc.full_name}</h3>
+            <p style="margin:0; font-size:12px; color:var(--text-secondary);">${doc.specialty}</p>
+          </div>
+        </div>
+        
+        <div style="font-size:12px; color:var(--text-secondary); line-height:1.5; background:var(--panel); padding:10px; border-radius:6px;">
+          <div style="display:flex; align-items:center; gap:6px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg> ${doc.hospital}</div>
+          <div style="display:flex; align-items:center; gap:6px; margin-top:4px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg> ${phone}</div>
+          <div style="display:flex; align-items:center; gap:6px; margin-top:4px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg> ${email}</div>
+        </div>
+        
+        <button onclick="requestAppointment('${doc.id}')" style="background:var(--cyan-dim); color:var(--cyan); border:1px solid var(--cyan); padding:10px; border-radius:6px; font-weight:bold; cursor:pointer; width:100%; font-size:12px; transition:0.2s; margin-top:auto;">Send Scan & Request</button>
       </div>
     `;
   });
