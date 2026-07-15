@@ -1162,41 +1162,74 @@ function verifyPatientScan(email, prediction) {
 }
 
 async function updateAppointment(id, newStatus, replyElementId, dateElementId, timeElementId) {
+  const { data } = await supabaseClient.from('appointments').select('doctor_reply, appointment_date, appointment_time').eq('id', id).single();
+  const currentMsg = data?.doctor_reply || '';
+  
+  let newDate = data.appointment_date;
+  let newTime = data.appointment_time;
+  if (dateElementId && document.getElementById(dateElementId).value) newDate = document.getElementById(dateElementId).value;
+  if (timeElementId && document.getElementById(timeElementId).value) newTime = document.getElementById(timeElementId).value;
+
   let replyText = '';
   if (replyElementId) {
     const el = document.getElementById(replyElementId);
     if (el) replyText = el.value.trim();
   }
-  const payload = { status: newStatus, doctor_reply: replyText };
-  if (dateElementId && document.getElementById(dateElementId).value) {
-    payload.appointment_date = document.getElementById(dateElementId).value;
+
+  let dateChangedStr = '';
+  if (newDate !== data.appointment_date || newTime !== data.appointment_time) {
+    dateChangedStr = `<br><br><strong style="color:var(--warning);">[Rescheduled]:</strong> Changed from <em>${data.appointment_date} at ${data.appointment_time}</em> to <strong style="color:var(--cyan);">${newDate} at ${newTime}</strong>`;
   }
-  if (timeElementId && document.getElementById(timeElementId).value) {
-    payload.appointment_time = document.getElementById(timeElementId).value;
+
+  if (dateChangedStr) {
+    replyText = replyText ? replyText + dateChangedStr : currentMsg ? currentMsg + dateChangedStr : dateChangedStr.replace('<br><br>', '');
   }
+
+  const payload = { 
+    status: newStatus, 
+    doctor_reply: replyText || currentMsg,
+    appointment_date: newDate,
+    appointment_time: newTime
+  };
   
   await supabaseClient.from('appointments').update(payload).eq('id', id);
-  
   loadAppointments();
 }
 
 async function updateAppointmentReply(id, replyElementId, dateElementId, timeElementId) {
+  const { data } = await supabaseClient.from('appointments').select('doctor_reply, appointment_date, appointment_time').eq('id', id).single();
+  const currentMsg = data?.doctor_reply || '';
+  
+  let newDate = data.appointment_date;
+  let newTime = data.appointment_time;
+  if (dateElementId && document.getElementById(dateElementId).value) newDate = document.getElementById(dateElementId).value;
+  if (timeElementId && document.getElementById(timeElementId).value) newTime = document.getElementById(timeElementId).value;
+
   const payload = {};
+  let dateChangedStr = '';
+  
+  if (newDate !== data.appointment_date || newTime !== data.appointment_time) {
+    dateChangedStr = `<br><br><strong style="color:var(--warning);">[Rescheduled]:</strong> Changed from <em>${data.appointment_date} at ${data.appointment_time}</em> to <strong style="color:var(--cyan);">${newDate} at ${newTime}</strong>`;
+    payload.appointment_date = newDate;
+    payload.appointment_time = newTime;
+  }
+
+  let newReply = currentMsg;
   if (replyElementId) {
     const el = document.getElementById(replyElementId);
     if (el && el.value.trim()) {
-      const { data } = await supabaseClient.from('appointments').select('doctor_reply').eq('id', id).single();
-      const currentMsg = data?.doctor_reply || '';
-      payload.doctor_reply = currentMsg ? currentMsg + '<br><br><strong style="color:var(--text-primary);">[Update]:</strong> ' + el.value.trim() : el.value.trim();
+      newReply = currentMsg ? currentMsg + '<br><br><strong style="color:var(--text-primary);">[Update]:</strong> ' + el.value.trim() : el.value.trim();
     }
   }
-  if (dateElementId && document.getElementById(dateElementId).value) {
-    payload.appointment_date = document.getElementById(dateElementId).value;
+
+  if (dateChangedStr) {
+    newReply = newReply ? newReply + dateChangedStr : dateChangedStr.replace('<br><br>', '');
   }
-  if (timeElementId && document.getElementById(timeElementId).value) {
-    payload.appointment_time = document.getElementById(timeElementId).value;
+
+  if (newReply !== currentMsg) {
+    payload.doctor_reply = newReply;
   }
-  
+
   if (Object.keys(payload).length > 0) {
     await supabaseClient.from('appointments').update(payload).eq('id', id);
   }
