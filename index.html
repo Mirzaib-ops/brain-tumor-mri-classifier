@@ -959,7 +959,13 @@ async function loadDirectory() {
     return;
   }
   grid.innerHTML = '';
-  data.forEach(doc => {
+  
+  // Deduplicate doctors by name (keep the most recent one to filter out dead accounts)
+  const uniqueDoctorsMap = new Map();
+  data.forEach(doc => uniqueDoctorsMap.set(doc.full_name, doc));
+  const uniqueDoctors = Array.from(uniqueDoctorsMap.values());
+  
+  uniqueDoctors.forEach(doc => {
     const avatar = doc.image_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(doc.full_name)}&background=2a9d94&color=fff`;
     const phone = doc.phone || 'Not provided';
     const email = doc.contact_email || 'Not provided';
