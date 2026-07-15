@@ -634,7 +634,7 @@ supabaseClient.auth.onAuthStateChange(async (event, session) => {
     
     // UI adjustments based on Role
     if (role === 'doctor') {
-      const { data } = await supabaseClient.from('doctors_profiles').select('full_name').eq('id', currentUser.id).single();
+      const { data } = await supabaseClient.from('doctors_profiles').select('full_name').eq('id', currentUser.id).maybeSingle();
       userEmailDisplay.textContent = data ? data.full_name : 'Dr. ' + currentUser.email.split('@')[0];
       
       document.getElementById('tabHistory').style.display = 'block';
