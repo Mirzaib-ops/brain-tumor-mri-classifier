@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <title>NeuroScan Pro — Clinical AI Dashboard</title>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root{
     --bg:#0a0d12;
@@ -375,7 +376,7 @@
 
     <div class="report-result" id="reportResult">
       <div class="verdict" id="verdictBox">
-        <div class="label" id="vLabel">AI ASSESSMENT</div>
+        <div class="label" id="vLabel">AI ASSESSMENT <span id="dbSyncStatus" style="float:right; opacity:0.8;"></span></div>
         <div class="value" id="vClass">Glioma Tumor</div>
         <div class="conf" id="vConf">98.4% Confidence · Review Required</div>
       </div>
@@ -400,6 +401,11 @@
 <div class="footer-note">NeuroScan Pro Architecture powered by TensorFlow.js (Inference runs entirely in-browser)</div>
 
 <script>
+// Initialize Supabase
+const supabaseUrl = 'https://kafdfqcievjrsvvgbsnn.supabase.co';
+const supabaseKey = 'sb_publishable_elWZd9tvOEpbexUmVagnVA_2cTd8jsb';
+const supabase = supabase.createClient(supabaseUrl, supabaseKey);
+
 // State & Classes
 const state = { 
   loadedFile: false, model: null, isSimulation: false,
@@ -614,6 +620,27 @@ function renderResults(probs) {
     ui.btnCam.classList.add('active');
   }
   if(state.heatmap) ui.heatmapOverlay.classList.add('show');
+  
+  // Sync to Supabase
+  const syncEl = document.getElementById('dbSyncStatus');
+  syncEl.innerHTML = 'SYNCING...';
+  syncEl.style.color = 'inherit';
+  supabase.from('scans').insert([{
+    patient_id: ui.metaPatient.textContent,
+    scan_date: ui.metaDate.textContent,
+    modality: ui.metaMod.textContent,
+    prediction: meta.name,
+    confidence: top.p.toFixed(2) + '%'
+  }]).then(({ error }) => {
+    if(error) {
+      console.error('Supabase Sync Error:', error);
+      syncEl.innerHTML = 'SYNC FAILED ✕';
+      syncEl.style.color = 'var(--error)';
+    } else {
+      syncEl.innerHTML = 'CLOUD SYNCED ✓';
+      syncEl.style.color = 'var(--success)';
+    }
+  });
 }
 
 function downloadReport(){
