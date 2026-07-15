@@ -641,6 +641,12 @@ supabaseClient.auth.onAuthStateChange(async (event, session) => {
       document.getElementById('tabAppointments').style.display = 'block';
       document.getElementById('tabAppointments').textContent = 'Incoming Appointments';
       document.getElementById('tabDirectory').style.display = 'none';
+      
+      // Reorder for Doctor: Appointments -> History -> Scanner
+      document.getElementById('tabAppointments').style.order = 1;
+      document.getElementById('tabHistory').style.order = 2;
+      document.getElementById('tabScanner').style.order = 3;
+      
       document.getElementById('tabAppointments').click(); // Default landing page for doctors
     } else {
       userEmailDisplay.textContent = 'Patient: ' + currentUser.email.split('@')[0];
@@ -648,6 +654,12 @@ supabaseClient.auth.onAuthStateChange(async (event, session) => {
       document.getElementById('tabAppointments').style.display = 'block'; // Unhide Appointments for Patients (Feedback Dashboard)
       document.getElementById('tabAppointments').textContent = 'My Appointments';
       document.getElementById('tabDirectory').style.display = 'block';
+      
+      // Reorder for Patient: Scanner -> Directory -> Appointments
+      document.getElementById('tabScanner').style.order = 1;
+      document.getElementById('tabDirectory').style.order = 2;
+      document.getElementById('tabAppointments').style.order = 3;
+      
       document.getElementById('tabScanner').click(); // Default landing page for patients
     }
   } else {
@@ -969,7 +981,11 @@ async function loadAppointments() {
               <button onclick="updateAppointment('${app.id}', 'declined', 'reply_${app.id}')" style="background:var(--error); color:#fff; border:none; padding:6px 16px; border-radius:4px; cursor:pointer; font-weight:bold; font-size:12px;">Decline</button>
             </div>
           ` : `
-            ${app.doctor_reply ? `<div style="background:var(--panel); padding:10px; border-radius:6px; font-size:12px; color:var(--text-secondary); border-left:3px solid ${app.status === 'accepted' ? 'var(--success)' : 'var(--error)'};"><strong style="color:var(--text-primary);">Your Reply:</strong><br>${app.doctor_reply}</div>` : ''}
+            ${app.doctor_reply ? `<div style="background:var(--panel); padding:10px; border-radius:6px; font-size:12px; color:var(--text-secondary); border-left:3px solid ${app.status === 'accepted' ? 'var(--success)' : 'var(--error)'}; margin-bottom:5px;"><strong style="color:var(--text-primary);">Your Reply:</strong><br>${app.doctor_reply}</div>` : ''}
+            <div style="display:flex; gap:10px; align-items:center;">
+              <textarea id="reply_${app.id}" style="flex:1; height:30px; padding:6px; background:var(--panel); border:1px solid var(--border); color:#fff; border-radius:4px; outline:none; resize:none; font-size:11px;" placeholder="Update your reply or suggest a new time..."></textarea>
+              <button onclick="updateAppointmentReply('${app.id}', 'reply_${app.id}')" style="background:var(--cyan-dim); color:var(--cyan); border:1px solid var(--cyan); padding:6px 12px; border-radius:4px; cursor:pointer; font-weight:bold; font-size:11px; white-space:nowrap;">Send Message</button>
+            </div>
           `}
         </div>
       `;
@@ -1032,6 +1048,17 @@ async function updateAppointment(id, newStatus, replyElementId) {
   await supabaseClient.from('appointments').update({ 
     status: newStatus,
     doctor_reply: replyText 
+  }).eq('id', id);
+  
+  loadAppointments();
+}
+
+async function updateAppointmentReply(id, replyElementId) {
+  const el = document.getElementById(replyElementId);
+  if (!el || !el.value.trim()) return;
+  
+  await supabaseClient.from('appointments').update({ 
+    doctor_reply: el.value.trim() 
   }).eq('id', id);
   
   loadAppointments();
