@@ -577,6 +577,9 @@
     
     <input type="hidden" id="reqTime" value="">
     
+    <label style="font-size:12px; color:var(--text-secondary); display:block; margin-bottom:4px;">Clinical Notes (Symptoms, history, etc.):</label>
+    <textarea id="reqNotes" style="width:100%; height:60px; margin-bottom:20px; padding:10px; background:var(--panel-2); border:1px solid var(--border); color:#fff; border-radius:6px; outline:none; resize:none;" placeholder="Optional details for the doctor..."></textarea>
+    
     <div style="display:flex; gap:10px;">
       <button onclick="document.getElementById('appointmentModal').style.display='none'" style="flex:1; padding:10px; background:transparent; border:1px solid var(--border); color:var(--text-secondary); cursor:pointer; border-radius:6px;">Cancel</button>
       <button id="btnConfirmRequest" style="flex:1; padding:10px; background:var(--cyan); border:none; color:#000; font-weight:bold; cursor:pointer; border-radius:6px;">Confirm</button>
@@ -872,12 +875,14 @@ function requestAppointment(doctorId) {
   document.querySelectorAll('.slot-btn').forEach(b => b.classList.remove('selected'));
   document.getElementById('reqTime').value = '';
   document.getElementById('reqDate').value = new Date().toISOString().split('T')[0];
+  document.getElementById('reqNotes').value = '';
   document.getElementById('appointmentModal').style.display = 'flex';
 }
 
-document.getElementById('btnConfirmRequest').addEventListener('click', async () => {
+async function confirmAppointmentRequest() {
   const dateVal = document.getElementById('reqDate').value;
   const timeVal = document.getElementById('reqTime').value;
+  const notesVal = document.getElementById('reqNotes').value;
   if (!dateVal || !timeVal) { alert('Please select a date and time.'); return; }
   
   const predEl = document.getElementById('vClass');
@@ -885,15 +890,17 @@ document.getElementById('btnConfirmRequest').addEventListener('click', async () 
   
   document.getElementById('btnConfirmRequest').textContent = 'Sending...';
   
-  const { error } = await supabaseClient.from('appointments').insert([{
-    patient_id: currentUser.id,
-    patient_email: currentUser.email,
-    doctor_id: pendingDoctorId,
-    prediction: predictionStr,
-    status: 'pending',
-    appointment_date: dateVal,
-    appointment_time: timeVal
-  }]);
+  const { error } = await supabaseClient.from('appointments').insert([
+    {
+      patient_id: currentUser.id,
+      patient_email: currentUser.email,
+      doctor_id: pendingDoctorId,
+      prediction: predictionStr,
+      appointment_date: dateVal,
+      appointment_time: timeVal,
+      patient_message: notesVal
+    }
+  ]);
   
   document.getElementById('btnConfirmRequest').textContent = 'Confirm';
   document.getElementById('appointmentModal').style.display = 'none';
@@ -936,19 +943,29 @@ async function loadAppointments() {
     data.forEach(app => {
       let reqDateStr = app.appointment_date + ' at ' + app.appointment_time;
       list.innerHTML += `
-        <div style="background:var(--panel-2); padding:15px; border-radius:8px; border:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
-          <div>
-            <h4 style="margin:0 0 5px 0; color:var(--text-primary); font-size:14px;">Patient: ${app.patient_email}</h4>
-            <p style="margin:0; font-size:12px; color:var(--text-secondary);">Requested for: <strong style="color:#fff;">${reqDateStr}</strong><br>AI Result: <strong style="color:var(--warning);">${app.prediction}</strong></p>
+        <div style="background:var(--panel-2); padding:15px; border-radius:8px; border:1px solid var(--border); display:flex; flex-direction:column; gap:10px;">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:10px;">
+            <div>
+              <h4 style="margin:0 0 5px 0; color:var(--text-primary); font-size:14px;">Patient: ${app.patient_email}</h4>
+              <p style="margin:0; font-size:12px; color:var(--text-secondary);">Requested for: <strong style="color:#fff;">${reqDateStr}</strong><br>AI Result: <strong style="color:var(--warning);">${app.prediction}</strong></p>
+            </div>
+            <div style="display:flex; gap:10px; align-items:center;">
+              <button onclick="verifyPatientScan('${app.patient_email}', '${app.prediction}')" style="background:var(--cyan-dim); color:var(--cyan); border:1px solid var(--cyan); padding:6px 12px; border-radius:4px; cursor:pointer; font-weight:bold; font-size:12px;">Verify Scan</button>
+              <span style="font-size:11px; font-weight:bold; padding:4px 8px; border-radius:4px; background:var(--panel); border:1px solid var(--border); text-transform:uppercase; color:${app.status === 'accepted' ? 'var(--success)' : (app.status === 'declined' ? 'var(--error)' : 'var(--warning)')};">${app.status}</span>
+            </div>
           </div>
-          <div style="display:flex; gap:10px; align-items:center;">
-            <button onclick="verifyPatientScan('${app.patient_email}', '${app.prediction}')" style="background:var(--cyan-dim); color:var(--cyan); border:1px solid var(--cyan); padding:6px 12px; border-radius:4px; cursor:pointer; font-weight:bold; font-size:12px;">Verify Scan</button>
-            <span style="font-size:11px; font-weight:bold; padding:4px 8px; border-radius:4px; background:var(--panel); border:1px solid var(--border); text-transform:uppercase; color:${app.status === 'accepted' ? 'var(--success)' : (app.status === 'declined' ? 'var(--error)' : 'var(--warning)')};">${app.status}</span>
-            ${app.status === 'pending' ? `
-              <button onclick="updateAppointment('${app.id}', 'accepted')" style="background:var(--success); color:#000; border:none; padding:6px 12px; border-radius:4px; cursor:pointer; font-weight:bold; font-size:12px;">Accept</button>
-              <button onclick="updateAppointment('${app.id}', 'declined')" style="background:var(--error); color:#fff; border:none; padding:6px 12px; border-radius:4px; cursor:pointer; font-weight:bold; font-size:12px;">Decline</button>
-            ` : ''}
-          </div>
+          
+          ${app.patient_message ? `<div style="background:var(--panel); padding:10px; border-radius:6px; font-size:12px; color:var(--text-secondary); border-left:3px solid var(--cyan);"><strong style="color:var(--text-primary);">Patient Notes:</strong><br>${app.patient_message}</div>` : ''}
+          
+          ${app.status === 'pending' ? `
+            <textarea id="reply_${app.id}" style="width:100%; height:40px; padding:8px; background:var(--panel); border:1px solid var(--border); color:#fff; border-radius:4px; outline:none; resize:none; font-size:12px;" placeholder="Write a reply message to the patient..."></textarea>
+            <div style="display:flex; gap:10px; justify-content:flex-end;">
+              <button onclick="updateAppointment('${app.id}', 'accepted', 'reply_${app.id}')" style="background:var(--success); color:#000; border:none; padding:6px 16px; border-radius:4px; cursor:pointer; font-weight:bold; font-size:12px;">Accept</button>
+              <button onclick="updateAppointment('${app.id}', 'declined', 'reply_${app.id}')" style="background:var(--error); color:#fff; border:none; padding:6px 16px; border-radius:4px; cursor:pointer; font-weight:bold; font-size:12px;">Decline</button>
+            </div>
+          ` : `
+            ${app.doctor_reply ? `<div style="background:var(--panel); padding:10px; border-radius:6px; font-size:12px; color:var(--text-secondary); border-left:3px solid ${app.status === 'accepted' ? 'var(--success)' : 'var(--error)'};"><strong style="color:var(--text-primary);">Your Reply:</strong><br>${app.doctor_reply}</div>` : ''}
+          `}
         </div>
       `;
     });
@@ -965,14 +982,18 @@ async function loadAppointments() {
       let reqDateStr = app.appointment_date + ' at ' + app.appointment_time;
       let docName = app.doctors_profiles ? app.doctors_profiles.full_name : 'A Specialist';
       list.innerHTML += `
-        <div style="background:var(--panel-2); padding:15px; border-radius:8px; border:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
-          <div>
-            <h4 style="margin:0 0 5px 0; color:var(--text-primary); font-size:14px;">Dr. ${docName}</h4>
-            <p style="margin:0; font-size:12px; color:var(--text-secondary);">Requested for: <strong style="color:#fff;">${reqDateStr}</strong></p>
+        <div style="background:var(--panel-2); padding:15px; border-radius:8px; border:1px solid var(--border); display:flex; flex-direction:column; gap:10px;">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:10px;">
+            <div>
+              <h4 style="margin:0 0 5px 0; color:var(--text-primary); font-size:14px;">Dr. ${docName}</h4>
+              <p style="margin:0; font-size:12px; color:var(--text-secondary);">Requested for: <strong style="color:#fff;">${reqDateStr}</strong></p>
+            </div>
+            <div style="display:flex; gap:10px; align-items:center;">
+              <span style="font-size:11px; font-weight:bold; padding:6px 10px; border-radius:4px; background:var(--panel); border:1px solid var(--border); text-transform:uppercase; color:${app.status === 'accepted' ? 'var(--success)' : (app.status === 'declined' ? 'var(--error)' : 'var(--warning)')};">${app.status}</span>
+            </div>
           </div>
-          <div style="display:flex; gap:10px; align-items:center;">
-            <span style="font-size:11px; font-weight:bold; padding:6px 10px; border-radius:4px; background:var(--panel); border:1px solid var(--border); text-transform:uppercase; color:${app.status === 'accepted' ? 'var(--success)' : (app.status === 'declined' ? 'var(--error)' : 'var(--warning)')};">${app.status}</span>
-          </div>
+          ${app.patient_message ? `<div style="background:var(--panel); padding:10px; border-radius:6px; font-size:12px; color:var(--text-secondary); border-left:3px solid var(--cyan);"><strong style="color:var(--text-primary);">Your Notes:</strong><br>${app.patient_message}</div>` : ''}
+          ${app.doctor_reply ? `<div style="background:var(--panel); padding:10px; border-radius:6px; font-size:12px; color:var(--text-secondary); border-left:3px solid ${app.status === 'accepted' ? 'var(--success)' : 'var(--error)'};"><strong style="color:var(--text-primary);">Doctor's Reply:</strong><br>${app.doctor_reply}</div>` : ''}
         </div>
       `;
     });
@@ -996,8 +1017,18 @@ function verifyPatientScan(email, prediction) {
   `;
 }
 
-async function updateAppointment(id, newStatus) {
-  await supabaseClient.from('appointments').update({ status: newStatus }).eq('id', id);
+async function updateAppointment(id, newStatus, replyElementId) {
+  let replyText = '';
+  if (replyElementId) {
+    const el = document.getElementById(replyElementId);
+    if (el) replyText = el.value.trim();
+  }
+  
+  await supabaseClient.from('appointments').update({ 
+    status: newStatus,
+    doctor_reply: replyText 
+  }).eq('id', id);
+  
   loadAppointments();
 }
 
