@@ -975,16 +975,28 @@ async function loadAppointments() {
           ${app.patient_message ? `<div style="background:var(--panel); padding:10px; border-radius:6px; font-size:12px; color:var(--text-secondary); border-left:3px solid var(--cyan);"><strong style="color:var(--text-primary);">Patient Notes:</strong><br>${app.patient_message}</div>` : ''}
           
           ${app.status === 'pending' ? `
-            <textarea id="reply_${app.id}" style="width:100%; height:40px; padding:8px; background:var(--panel); border:1px solid var(--border); color:#fff; border-radius:4px; outline:none; resize:none; font-size:12px;" placeholder="Write a reply message to the patient..."></textarea>
-            <div style="display:flex; gap:10px; justify-content:flex-end;">
-              <button onclick="updateAppointment('${app.id}', 'accepted', 'reply_${app.id}')" style="background:var(--success); color:#000; border:none; padding:6px 16px; border-radius:4px; cursor:pointer; font-weight:bold; font-size:12px;">Accept</button>
-              <button onclick="updateAppointment('${app.id}', 'declined', 'reply_${app.id}')" style="background:var(--error); color:#fff; border:none; padding:6px 16px; border-radius:4px; cursor:pointer; font-weight:bold; font-size:12px;">Decline</button>
+            <div style="display:flex; flex-direction:column; gap:8px;">
+              <div style="display:flex; gap:10px;">
+                <input type="date" id="date_${app.id}" value="${app.appointment_date}" style="flex:1; padding:6px; background:var(--panel); border:1px solid var(--border); color:#fff; border-radius:4px; font-size:11px;">
+                <input type="time" id="time_${app.id}" value="${app.appointment_time}" style="flex:1; padding:6px; background:var(--panel); border:1px solid var(--border); color:#fff; border-radius:4px; font-size:11px;">
+              </div>
+              <textarea id="reply_${app.id}" style="width:100%; height:40px; padding:8px; background:var(--panel); border:1px solid var(--border); color:#fff; border-radius:4px; outline:none; resize:none; font-size:12px;" placeholder="Write a reply message to the patient..."></textarea>
+              <div style="display:flex; gap:10px; justify-content:flex-end;">
+                <button onclick="updateAppointment('${app.id}', 'accepted', 'reply_${app.id}', 'date_${app.id}', 'time_${app.id}')" style="background:var(--success); color:#000; border:none; padding:6px 16px; border-radius:4px; cursor:pointer; font-weight:bold; font-size:12px;">Accept</button>
+                <button onclick="updateAppointment('${app.id}', 'declined', 'reply_${app.id}', 'date_${app.id}', 'time_${app.id}')" style="background:var(--error); color:#fff; border:none; padding:6px 16px; border-radius:4px; cursor:pointer; font-weight:bold; font-size:12px;">Decline</button>
+              </div>
             </div>
           ` : `
             ${app.doctor_reply ? `<div style="background:var(--panel); padding:10px; border-radius:6px; font-size:12px; color:var(--text-secondary); border-left:3px solid ${app.status === 'accepted' ? 'var(--success)' : 'var(--error)'}; margin-bottom:5px;"><strong style="color:var(--text-primary);">Your Reply:</strong><br>${app.doctor_reply}</div>` : ''}
-            <div style="display:flex; gap:10px; align-items:center;">
-              <textarea id="reply_${app.id}" style="flex:1; height:30px; padding:6px; background:var(--panel); border:1px solid var(--border); color:#fff; border-radius:4px; outline:none; resize:none; font-size:11px;" placeholder="Update your reply or suggest a new time..."></textarea>
-              <button onclick="updateAppointmentReply('${app.id}', 'reply_${app.id}')" style="background:var(--cyan-dim); color:var(--cyan); border:1px solid var(--cyan); padding:6px 12px; border-radius:4px; cursor:pointer; font-weight:bold; font-size:11px; white-space:nowrap;">Send Message</button>
+            <div style="display:flex; flex-direction:column; gap:8px;">
+              <div style="display:flex; gap:10px;">
+                <input type="date" id="date_${app.id}" value="${app.appointment_date}" style="flex:1; padding:6px; background:var(--panel); border:1px solid var(--border); color:#fff; border-radius:4px; font-size:11px;">
+                <input type="time" id="time_${app.id}" value="${app.appointment_time}" style="flex:1; padding:6px; background:var(--panel); border:1px solid var(--border); color:#fff; border-radius:4px; font-size:11px;">
+              </div>
+              <div style="display:flex; gap:10px; align-items:center;">
+                <textarea id="reply_${app.id}" style="flex:1; height:30px; padding:6px; background:var(--panel); border:1px solid var(--border); color:#fff; border-radius:4px; outline:none; resize:none; font-size:11px;" placeholder="Update your reply or suggest a new time..."></textarea>
+                <button onclick="updateAppointmentReply('${app.id}', 'reply_${app.id}', 'date_${app.id}', 'time_${app.id}')" style="background:var(--cyan-dim); color:var(--cyan); border:1px solid var(--cyan); padding:6px 12px; border-radius:4px; cursor:pointer; font-weight:bold; font-size:11px; white-space:nowrap;">Send Message</button>
+              </div>
             </div>
           `}
         </div>
@@ -1038,28 +1050,41 @@ function verifyPatientScan(email, prediction) {
   `;
 }
 
-async function updateAppointment(id, newStatus, replyElementId) {
+async function updateAppointment(id, newStatus, replyElementId, dateElementId, timeElementId) {
   let replyText = '';
   if (replyElementId) {
     const el = document.getElementById(replyElementId);
     if (el) replyText = el.value.trim();
   }
+  const payload = { status: newStatus, doctor_reply: replyText };
+  if (dateElementId && document.getElementById(dateElementId).value) {
+    payload.appointment_date = document.getElementById(dateElementId).value;
+  }
+  if (timeElementId && document.getElementById(timeElementId).value) {
+    payload.appointment_time = document.getElementById(timeElementId).value;
+  }
   
-  await supabaseClient.from('appointments').update({ 
-    status: newStatus,
-    doctor_reply: replyText 
-  }).eq('id', id);
+  await supabaseClient.from('appointments').update(payload).eq('id', id);
   
   loadAppointments();
 }
 
-async function updateAppointmentReply(id, replyElementId) {
-  const el = document.getElementById(replyElementId);
-  if (!el || !el.value.trim()) return;
+async function updateAppointmentReply(id, replyElementId, dateElementId, timeElementId) {
+  const payload = {};
+  if (replyElementId) {
+    const el = document.getElementById(replyElementId);
+    if (el && el.value.trim()) payload.doctor_reply = el.value.trim();
+  }
+  if (dateElementId && document.getElementById(dateElementId).value) {
+    payload.appointment_date = document.getElementById(dateElementId).value;
+  }
+  if (timeElementId && document.getElementById(timeElementId).value) {
+    payload.appointment_time = document.getElementById(timeElementId).value;
+  }
   
-  await supabaseClient.from('appointments').update({ 
-    doctor_reply: el.value.trim() 
-  }).eq('id', id);
+  if (Object.keys(payload).length > 0) {
+    await supabaseClient.from('appointments').update(payload).eq('id', id);
+  }
   
   loadAppointments();
 }
@@ -1268,11 +1293,14 @@ function renderResults(probs) {
   const guidanceText = document.getElementById('aiGuidanceText');
   const btnFindSpecialist = document.getElementById('btnFindSpecialist');
   
-  if (guidanceSection && guidanceText && btnFindSpecialist) {
+  let currentRole = currentUser?.user_metadata?.role;
+  if (currentUser && !currentRole && (currentUser.email.includes('demo.') || currentUser.email.includes('doctor'))) currentRole = 'doctor';
+  
+  if (guidanceSection && guidanceText && btnFindSpecialist && currentRole !== 'doctor') {
     guidanceText.textContent = guidance;
     guidanceSection.style.display = 'block';
     
-    if (top.key !== 'notumor' && currentUser && currentUser.user_metadata?.role === 'patient') {
+    if (top.key !== 'notumor' && currentUser && currentRole !== 'doctor') {
       btnFindSpecialist.style.display = 'block';
       btnFindSpecialist.onclick = () => document.getElementById('tabDirectory').click();
     } else {
