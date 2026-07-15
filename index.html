@@ -69,6 +69,11 @@
   .auth-toggle:hover { color:var(--text-primary); }
   .auth-error { color:var(--error); font-size:12px; background:rgba(255,51,102,0.1); padding:10px; border-radius:6px; border:1px solid rgba(255,51,102,0.3); display:none; }
   
+  .role-label { flex:1; background:var(--panel-2); padding:12px; border-radius:8px; border:1px solid var(--border); cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; font-size:13px; font-weight:600; color:var(--text-secondary); transition:all 0.2s; }
+  .role-label:hover { border-color:rgba(62,231,224,0.5); color:var(--text-primary); }
+  input[type="radio"]:checked + .role-label { border-color:var(--cyan); background:rgba(62,231,224,0.1); color:var(--cyan); }
+  input[type="radio"] { display:none; }
+  
   .user-profile { display:flex; align-items:center; gap:12px; font-size:13px; color:var(--text-secondary); }
   .logout-btn { background:transparent; border:1px solid var(--border); color:var(--text-secondary); padding:6px 12px; border-radius:6px; cursor:pointer; font-size:12px; transition:0.2s; }
   .logout-btn:hover { background:var(--error); color:#fff; border-color:var(--error); }
@@ -350,22 +355,35 @@
 
 <!-- Authentication View -->
 <div id="viewAuth" class="panel" style="max-width:500px; margin:40px auto; text-align:center;">
-  <div class="panel-title" style="justify-content:center; margin-bottom:8px;"><span class="bar"></span> Doctor Portal Access</div>
-  <p style="color:var(--text-secondary); font-size:13px; margin-bottom:10px;">Please authenticate to access your isolated clinical dashboard.</p>
+  <div class="panel-title" style="justify-content:center; margin-bottom:8px;"><span class="bar"></span> NeuroScan Secure Access</div>
+  <p style="color:var(--text-secondary); font-size:13px; margin-bottom:10px;">Please authenticate to access the clinical platform.</p>
   
   <div class="auth-error" id="authError"></div>
 
   <!-- Login Form -->
   <form id="loginForm" class="auth-form" onsubmit="event.preventDefault(); handleAuth('login');">
-    <input type="email" id="loginEmail" placeholder="Doctor Email Address" required>
+    <input type="email" id="loginEmail" placeholder="Email Address" required>
     <input type="password" id="loginPassword" placeholder="Password" required>
     <button type="submit" class="auth-btn" id="loginBtn">Secure Log In</button>
-    <button type="button" class="auth-toggle" onclick="toggleAuth('signup')">New Doctor? Register Clinical Account</button>
+    <button type="button" class="auth-toggle" onclick="toggleAuth('signup')">New User? Register Account</button>
   </form>
 
   <!-- Signup Form -->
   <form id="signupForm" class="auth-form" style="display:none;" onsubmit="event.preventDefault(); handleAuth('signup');">
-    <input type="email" id="signupEmail" placeholder="Doctor Email Address" required>
+    
+    <!-- Role Selector -->
+    <div style="display:flex; gap:10px; margin-bottom:4px;">
+      <label style="flex:1;">
+        <input type="radio" name="userRole" value="patient" checked>
+        <div class="role-label">Patient</div>
+      </label>
+      <label style="flex:1;">
+        <input type="radio" name="userRole" value="doctor">
+        <div class="role-label">Doctor</div>
+      </label>
+    </div>
+
+    <input type="email" id="signupEmail" placeholder="Email Address" required>
     <input type="password" id="signupPassword" placeholder="Create Password" minlength="6" required>
     <button type="submit" class="auth-btn" id="signupBtn">Register Account</button>
     <button type="button" class="auth-toggle" onclick="toggleAuth('login')">Already registered? Log In here</button>
@@ -531,11 +549,23 @@ const authError = document.getElementById('authError');
 supabaseClient.auth.onAuthStateChange((event, session) => {
   if (session) {
     currentUser = session.user;
+    const role = currentUser.user_metadata?.role || 'patient'; // Default to patient if missing
+    
     viewAuth.style.display = 'none';
     appContainer.style.display = 'block';
     navTabsContainer.style.display = 'flex';
     userProfile.style.display = 'flex';
-    userEmailDisplay.textContent = 'Dr. ' + currentUser.email.split('@')[0];
+    
+    // UI adjustments based on Role
+    if (role === 'doctor') {
+      userEmailDisplay.textContent = 'Dr. ' + currentUser.email.split('@')[0];
+      document.getElementById('tabHistory').style.display = 'block';
+    } else {
+      userEmailDisplay.textContent = 'Patient: ' + currentUser.email.split('@')[0];
+      document.getElementById('tabHistory').style.display = 'none'; // Patients don't see the global history table
+      document.getElementById('tabScanner').click(); // Force them to scanner view
+    }
+
     if (document.getElementById('tabHistory').classList.contains('active')) loadHistory();
   } else {
     currentUser = null;
@@ -565,7 +595,12 @@ async function handleAuth(type) {
     const res = await supabaseClient.auth.signInWithPassword({ email, password });
     error = res.error;
   } else {
-    const res = await supabaseClient.auth.signUp({ email, password });
+    const selectedRole = document.querySelector('input[name="userRole"]:checked').value;
+    const res = await supabaseClient.auth.signUp({ 
+      email, 
+      password,
+      options: { data: { role: selectedRole } }
+    });
     error = res.error;
     if (!error && !res.data.session) {
       authError.textContent = 'Registration successful! Check your email to verify.';
