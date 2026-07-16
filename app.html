@@ -1515,6 +1515,7 @@ ui.fileInput.addEventListener('change', e => handleFile(e.target.files[0]));
 function handleFile(file) {
   if (!file) return;
   state.lastFileName = file.name;
+  state.lastFileSize = file.size;
   const reader = new FileReader();
   reader.onload = e => {
     ui.previewImg.src = e.target.result;
@@ -1622,8 +1623,16 @@ async function simulatePrediction() {
   } else if (fname === 'default.jpg') {
     probs = [0.01, 0.01, 0.01, 0.97]; // No Tumor
   } else {
-    const ptId = ui.metaPatient.textContent.replace('PT-', '');
-    let seed = parseInt(ptId) || Date.now();
+    // Generate a consistent seed based on the file's intrinsic properties (name + size)
+    // This ensures the same file ALWAYS gets the same prediction, even if Patient ID changes!
+    let seedStr = (state.lastFileName || '') + (state.lastFileSize || '');
+    let seed = 0;
+    for (let i = 0; i < seedStr.length; i++) {
+      seed = (seed << 5) - seed + seedStr.charCodeAt(i);
+      seed = seed & seed; 
+    }
+    seed = Math.abs(seed) || Date.now();
+    
     const pseudoRandom = () => {
       let x = Math.sin(seed++) * 10000;
       return x - Math.floor(x);
