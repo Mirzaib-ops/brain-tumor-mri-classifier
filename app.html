@@ -1730,17 +1730,27 @@ function renderResults(probs) {
   const btnFindSpecialist = document.getElementById('btnFindSpecialist');
   
   let currentRole = currentUser?.user_metadata?.role;
-  if (currentUser && !currentRole && (currentUser.email.includes('demo.') || currentUser.email.includes('doctor'))) currentRole = 'doctor';
-  
-  if (guidanceSection && guidanceText && btnFindSpecialist && currentRole !== 'doctor') {
-    guidanceText.textContent = guidance;
-    guidanceSection.style.display = 'block';
-    
-    if (top.key !== 'notumor' && currentUser && currentRole !== 'doctor') {
-      btnFindSpecialist.style.display = 'block';
-      btnFindSpecialist.onclick = () => document.getElementById('tabDirectory').click();
+  if (currentUser && !currentRole) {
+    if (currentUser.email.includes('demo.') || currentUser.email.includes('doctor')) {
+      currentRole = 'doctor';
     } else {
-      btnFindSpecialist.style.display = 'none';
+      currentRole = 'patient';
+    }
+  }
+  
+  if (guidanceSection && guidanceText && btnFindSpecialist) {
+    if (currentRole === 'doctor') {
+      guidanceSection.style.display = 'none';
+    } else {
+      guidanceText.textContent = guidance;
+      guidanceSection.style.display = 'block';
+      
+      if (top.key !== 'notumor' && currentUser) {
+        btnFindSpecialist.style.display = 'block';
+        btnFindSpecialist.onclick = () => document.getElementById('tabDirectory').click();
+      } else {
+        btnFindSpecialist.style.display = 'none';
+      }
     }
   }
 }
