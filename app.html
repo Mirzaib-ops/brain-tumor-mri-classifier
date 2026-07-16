@@ -1145,11 +1145,12 @@ function requestAppointment(doctorId) {
   document.getElementById('appointmentModal').style.display = 'flex';
 }
 
-window.analyzePatientImage = function(appId) {
+window.analyzePatientImage = function(appId, prediction) {
   const imgData = document.getElementById('hidden_img_' + appId).value;
   const img = new Image();
   img.onload = () => {
     state.loadedFile = true;
+    state.forcePrediction = prediction;
     ui.previewImg.src = imgData;
     ui.previewImg.onload = () => { ui.metaRes.textContent = `${ui.previewImg.naturalWidth} × ${ui.previewImg.naturalHeight}`; };
     ui.previewImg.classList.add('show');
@@ -1292,7 +1293,7 @@ async function loadAppointments() {
                     <strong style="color:var(--text-primary); font-size:13px; display:block; margin-bottom:5px;">Patient's MRI Scan Attached</strong>
                     <div style="display:flex; gap:10px;">
                       <a href="${pImg}" download="patient_scan.jpg" style="background:var(--panel); border:1px solid var(--border); color:var(--text-primary); padding:6px 12px; border-radius:4px; text-decoration:none; font-size:11px; cursor:pointer;">Download Image</a>
-                      <button onclick="analyzePatientImage('${app.id}')" style="background:var(--cyan-dim); border:1px solid var(--cyan); color:var(--cyan); padding:6px 12px; border-radius:4px; font-size:11px; cursor:pointer; font-weight:bold;">Analyze in Scanner</button>
+                      <button onclick="analyzePatientImage('${app.id}', '${app.prediction}')" style="background:var(--cyan-dim); border:1px solid var(--cyan); color:var(--cyan); padding:6px 12px; border-radius:4px; font-size:11px; cursor:pointer; font-weight:bold;">Analyze in Scanner</button>
                     </div>
                   </div>
                 </div>
@@ -1516,6 +1517,7 @@ function handleFile(file) {
   if (!file) return;
   state.lastFileName = file.name;
   state.lastFileSize = file.size;
+  state.forcePrediction = null;
   const reader = new FileReader();
   reader.onload = e => {
     ui.previewImg.src = e.target.result;
@@ -1541,7 +1543,7 @@ ui.cancelBtn.addEventListener('click', () => {
   ui.previewImg.classList.remove('show'); ui.previewImg.src = ''; 
   ui.viewerHero.classList.remove('has-file'); ui.heatmapOverlay.classList.remove('show');
   ui.execBtn.disabled = true; ui.toolbar.style.opacity = '0.5'; ui.toolbar.style.pointerEvents = 'none';
-  state.filters = { contrast: false, invert: false }; state.heatmap = false;
+  state.filters = { contrast: false, invert: false }; state.heatmap = false; state.forcePrediction = null;
   ui.btnContrast.classList.remove('active'); ui.btnInvert.classList.remove('active'); ui.btnCam.classList.remove('active');
   applyFilters();
   ui.metaPatient.textContent = "Awaiting scan..."; ui.metaDate.textContent = "—"; ui.metaMod.textContent = "—"; ui.metaRes.textContent = "—"; ui.metaSize.textContent = "—";
@@ -1618,7 +1620,13 @@ ui.execBtn.addEventListener('click', async () => {
 async function simulatePrediction() {
   let probs;
   const fname = state.lastFileName || '';
-  if (fname === 'meningioma-blog-4-fig-2.jpg' || fname === 'meningioma-mri-scan-T1-post-contrast-image-768x451.webp' || fname === 'Meningioma (Article).__v200162937.jpg') {
+  if (state.forcePrediction) {
+    let pstr = state.forcePrediction.toLowerCase();
+    if (pstr.includes('meningioma')) probs = [0.02, 0.93, 0.03, 0.02];
+    else if (pstr.includes('glioma')) probs = [0.94, 0.02, 0.02, 0.02];
+    else if (pstr.includes('pituitary')) probs = [0.02, 0.02, 0.92, 0.04];
+    else probs = [0.01, 0.01, 0.01, 0.97]; // No Tumor
+  } else if (fname === 'meningioma-blog-4-fig-2.jpg' || fname === 'meningioma-mri-scan-T1-post-contrast-image-768x451.webp' || fname === 'Meningioma (Article).__v200162937.jpg') {
     probs = [0.02, 0.93, 0.03, 0.02]; // Meningioma
   } else if (fname === 'default.jpg') {
     probs = [0.01, 0.01, 0.01, 0.97]; // No Tumor
